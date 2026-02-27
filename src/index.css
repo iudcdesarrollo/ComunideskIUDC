@@ -1,0 +1,165 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+@utility btn-primary {
+  background-color: var(--color-blue-600);
+  color: white;
+  font-weight: 500;
+  padding: 0.625rem 1.25rem;
+  border-radius: 0.75rem;
+  transition: all 0.2s;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  &:hover {
+    background-color: var(--color-blue-700);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  }
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+@utility btn-secondary {
+  background-color: white;
+  color: var(--color-gray-700);
+  font-weight: 500;
+  padding: 0.625rem 1.25rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-gray-200);
+  transition: all 0.2s;
+  &:hover {
+    background-color: var(--color-gray-50);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  }
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+@utility btn-danger {
+  background-color: var(--color-red-500);
+  color: white;
+  font-weight: 500;
+  padding: 0.625rem 1.25rem;
+  border-radius: 0.75rem;
+  transition: all 0.2s;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  &:hover {
+    background-color: var(--color-red-600);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  }
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+@utility card {
+  background-color: white;
+  border-radius: 1rem;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  border: 1px solid var(--color-gray-100);
+  padding: 1.5rem;
+  transition: all 0.2s;
+}
+
+@utility card-hover {
+  background-color: white;
+  border-radius: 1rem;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  border: 1px solid var(--color-gray-100);
+  padding: 1.5rem;
+  transition: all 0.2s;
+  cursor: pointer;
+  &:hover {
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    border-color: var(--color-gray-200);
+  }
+}
+
+@utility input-field {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-gray-200);
+  background-color: white;
+  color: var(--color-gray-900);
+  transition: all 0.2s;
+  &::placeholder {
+    color: var(--color-gray-400);
+  }
+  &:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--color-blue-500);
+    border-color: transparent;
+  }
+}
+
+@utility badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+@utility badge-pendiente {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background-color: var(--color-amber-100);
+  color: var(--color-amber-700);
+}
+
+@utility badge-en-proceso {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background-color: var(--color-blue-100);
+  color: var(--color-blue-700);
+}
+
+@utility badge-completada {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background-color: var(--color-emerald-100);
+  color: var(--color-emerald-700);
+}
+
+@utility badge-rechazada {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background-color: var(--color-red-100);
+  color: var(--color-red-700);
+}
+
+@utility badge-urgente {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background-color: var(--color-red-500);
+  color: white;
+}
