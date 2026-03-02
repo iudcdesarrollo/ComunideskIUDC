@@ -1,0 +1,126 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Rol {
+  ADMIN
+  DIRECTOR
+  EQUIPO
+  SOLICITANTE
+}
+
+enum EstadoSolicitud {
+  PENDIENTE
+  EN_PROCESO
+  COMPLETADA
+  RECHAZADA
+}
+
+enum Prioridad {
+  ALTA
+  MEDIA
+  BAJA
+}
+
+enum EstadoReserva {
+  PENDIENTE
+  APROBADA
+  RECHAZADA
+}
+
+enum EstadoUrgente {
+  PENDIENTE
+  EN_PROCESO
+  RESUELTO
+}
+
+model User {
+  id                   Int            @id @default(autoincrement())
+  nombre               String
+  email                String         @unique
+  password             String
+  rol                  Rol            @default(SOLICITANTE)
+  cargo                String
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  solicitudesCreadas   Solicitud[]    @relation("SolicitanteRelation")
+  solicitudesAsignadas Solicitud[]    @relation("AsignadoRelation")
+  reservasRadio        ReservaRadio[]
+  urgentes             Urgente[]
+  refreshTokens        RefreshToken[]
+}
+
+model TipoSolicitud {
+  id            String      @id
+  nombre        String
+  descripcion   String
+  icono         String
+  color         String
+  tiempoEntrega String      @default("")
+  tiempoDetalle String      @default("")
+  solicitudes   Solicitud[]
+}
+
+model Solicitud {
+  id            String          @id
+  tipoId        String
+  titulo        String
+  descripcion   String          @default("")
+  solicitanteId Int
+  estado        EstadoSolicitud @default(PENDIENTE)
+  asignadoAId   Int?
+  prioridad     Prioridad       @default(MEDIA)
+  tiempoEntrega String          @default("")
+  datos         Json            @default("{}")
+  archivoUrl    String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  tipo          TipoSolicitud   @relation(fields: [tipoId], references: [id])
+  solicitante   User            @relation("SolicitanteRelation", fields: [solicitanteId], references: [id])
+  asignadoA     User?           @relation("AsignadoRelation", fields: [asignadoAId], references: [id])
+}
+
+model ReservaRadio {
+  id            Int           @id @default(autoincrement())
+  dia           String
+  hora          String
+  semana        String
+  estado        EstadoReserva @default(PENDIENTE)
+  solicitanteId Int
+  formulario    Json
+  createdAt     DateTime      @default(now())
+  solicitante   User          @relation(fields: [solicitanteId], references: [id])
+}
+
+model Urgente {
+  id            Int           @id @default(autoincrement())
+  titulo        String
+  descripcion   String
+  solicitanteId Int
+  estado        EstadoUrgente @default(PENDIENTE)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  solicitante   User          @relation(fields: [solicitanteId], references: [id])
+}
+
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  userId    Int
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model ProgramaFijo {
+  id       Int    @id @default(autoincrement())
+  programa String
+  dia      String
+  hora     String
+}

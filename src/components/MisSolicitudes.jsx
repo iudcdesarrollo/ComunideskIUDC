@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { obtenerSolicitudes, guardarSolicitudes, USUARIOS } from '../data/mockData';
+import { api } from '../services/api';
 import {
   Search,
   FileText,
@@ -40,31 +40,49 @@ export default function MisSolicitudes() {
   const [filtroEstado, setFiltroEstado] = useState('todos');
   const [filtroTipo, setFiltroTipo] = useState('todos');
   const [expandida, setExpandida] = useState(null);
-  const [solicitudes, setSolicitudes] = useState(() => obtenerSolicitudes());
+  const [solicitudes, setSolicitudes] = useState([]);
+  const [equipo, setEquipo] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const equipo = USUARIOS.filter((u) => u.rol === 'equipo');
+  const normalizeSol = (sol) => ({
+    ...sol,
+    tipo: sol.tipo || sol.tipoId,
+    tipoNombre: sol.tipoNombre || sol.tipoSolicitud?.nombre || '',
+    fechaCreacion: sol.fechaCreacion || (sol.createdAt ? new Date(sol.createdAt).toISOString().split('T')[0] : ''),
+    tiempoEntrega: sol.tiempoEntrega || sol.tipoSolicitud?.tiempoEntrega || '',
+    solicitante: sol.solicitante || { id: sol.solicitanteId, nombre: 'Desconocido', cargo: '' },
+    asignadoA: sol.asignadoA || null,
+    prioridad: sol.prioridad || 'media',
+  });
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [solRes, equipoRes] = await Promise.all([
+          api.get('/solicitudes'),
+          api.get('/users/equipo'),
+        ]);
+        setSolicitudes((Array.isArray(solRes) ? solRes : solRes.data || []).map(normalizeSol));
+        setEquipo(Array.isArray(equipoRes) ? equipoRes : []);
+      } catch (error) {
+        console.error('Error fetching solicitudes:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
   const solicitudesFiltradas = useMemo(() => {
     let resultado = [...solicitudes];
-
-    // Filtrar por rol
-    if (esSolicitante()) {
-      resultado = resultado.filter((s) => s.solicitante.id === usuario.id);
-    } else if (usuario?.rol === 'equipo') {
-      // Equipo ve: las asignadas a él + las pendientes sin asignar
-      resultado = resultado.filter(
-        (s) => s.asignadoA?.id === usuario.id || s.estado === 'pendiente'
-      );
-    }
-    // Admin ve todo
 
     if (busqueda) {
       const term = busqueda.toLowerCase();
       resultado = resultado.filter(
         (s) =>
-          s.titulo.toLowerCase().includes(term) ||
-          s.id.toLowerCase().includes(term) ||
-          s.solicitante.nombre.toLowerCase().includes(term)
+          (s.titulo || '').toLowerCase().includes(term) ||
+          (s.id || '').toLowerCase().includes(term) ||
+          (s.solicitante?.nombre || '').toLowerCase().includes(term)
       );
     }
 
@@ -73,57 +91,87 @@ export default function MisSolicitudes() {
     }
 
     if (filtroTipo !== 'todos') {
-      resultado = resultado.filter((s) => s.tipo === filtroTipo);
+      resultado = resultado.filter((s) => s.tipo === filtroTipo || s.tipoId === filtroTipo);
     }
 
     return resultado;
-  }, [solicitudes, busqueda, filtroEstado, filtroTipo, usuario, esSolicitante]);
+  }, [solicitudes, busqueda, filtroEstado, filtroTipo]);
 
-  const cambiarEstado = (id, nuevoEstado) => {
-    const actualizadas = solicitudes.map((s) =>
-      s.id === id ? { ...s, estado: nuevoEstado } : s
-    );
-    setSolicitudes(actualizadas);
-    guardarSolicitudes(actualizadas);
+  const cambiarEstado = async (id, nuevoEstado) => {
+    try {
+      await api.patch(`/solicitudes/${id}/estado`, { estado: nuevoEstado });
+      setSolicitudes((prev) =>
+        prev.map((s) => s.id === id ? { ...s, estado: nuevoEstado } : s)
+      );
+    } catch (error) {
+      alert(error.data?.error || 'Error al cambiar estado');
+    }
   };
 
-  const cambiarPrioridad = (id, nuevaPrioridad) => {
-    const actualizadas = solicitudes.map((s) =>
-      s.id === id ? { ...s, prioridad: nuevaPrioridad } : s
-    );
-    setSolicitudes(actualizadas);
-    guardarSolicitudes(actualizadas);
+  const cambiarPrioridad = async (id, nuevaPrioridad) => {
+    try {
+      await api.patch(`/solicitudes/${id}/prioridad`, { prioridad: nuevaPrioridad });
+      setSolicitudes((prev) =>
+        prev.map((s) => s.id === id ? { ...s, prioridad: nuevaPrioridad } : s)
+      );
+    } catch (error) {
+      alert(error.data?.error || 'Error al cambiar prioridad');
+    }
   };
 
-  const asignarMiembro = (id, miembroId) => {
-    const miembro = equipo.find((m) => m.id === parseInt(miembroId));
-    const actualizadas = solicitudes.map((s) =>
-      s.id === id
-        ? {
-            ...s,
-            asignadoA: miembro ? { id: miembro.id, nombre: miembro.nombre } : null,
-            estado: miembro && s.estado === 'pendiente' ? 'en_proceso' : s.estado,
-          }
-        : s
-    );
-    setSolicitudes(actualizadas);
-    guardarSolicitudes(actualizadas);
+  const asignarMiembro = async (id, miembroId) => {
+    try {
+      if (!miembroId) {
+        await api.patch(`/solicitudes/${id}/asignar`, { asignadoAId: null });
+        setSolicitudes((prev) =>
+          prev.map((s) => s.id === id ? { ...s, asignadoA: null } : s)
+        );
+      } else {
+        await api.patch(`/solicitudes/${id}/asignar`, { asignadoAId: parseInt(miembroId) });
+        const miembro = equipo.find((m) => m.id === parseInt(miembroId));
+        setSolicitudes((prev) =>
+          prev.map((s) =>
+            s.id === id
+              ? {
+                  ...s,
+                  asignadoA: miembro ? { id: miembro.id, nombre: miembro.nombre } : null,
+                  estado: miembro && s.estado === 'pendiente' ? 'en_proceso' : s.estado,
+                }
+              : s
+          )
+        );
+      }
+    } catch (error) {
+      alert(error.data?.error || 'Error al asignar');
+    }
   };
 
-  // Auto-asignar para miembro de equipo
-  const autoAsignar = (id) => {
-    const actualizadas = solicitudes.map((s) =>
-      s.id === id
-        ? {
-            ...s,
-            asignadoA: { id: usuario.id, nombre: usuario.nombre },
-            estado: 'en_proceso',
-          }
-        : s
-    );
-    setSolicitudes(actualizadas);
-    guardarSolicitudes(actualizadas);
+  const autoAsignar = async (id) => {
+    try {
+      await api.post(`/solicitudes/${id}/tomar`);
+      setSolicitudes((prev) =>
+        prev.map((s) =>
+          s.id === id
+            ? {
+                ...s,
+                asignadoA: { id: usuario.id, nombre: usuario.nombre },
+                estado: 'en_proceso',
+              }
+            : s
+        )
+      );
+    } catch (error) {
+      alert(error.data?.error || 'Error al tomar solicitud');
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">

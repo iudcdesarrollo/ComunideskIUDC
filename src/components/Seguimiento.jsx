@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { obtenerSolicitudes, TIPOS_SOLICITUD } from '../data/mockData';
+import { useState, useEffect } from 'react';
+import { api } from '../services/api';
 import {
   BarChart3,
   FileText,
@@ -13,42 +13,31 @@ import {
 } from 'lucide-react';
 
 export default function Seguimiento() {
-  const solicitudes = useMemo(() => obtenerSolicitudes(), []);
+  const [stats, setStats] = useState({
+    total: 0, pendientes: 0, enProceso: 0, completadas: 0, rechazadas: 0,
+    porTipo: [], porPrioridad: { alta: 0, media: 0, baja: 0 },
+    asignaciones: {}, tasaCompletado: 0,
+  });
+  const [solicitudes, setSolicitudes] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const stats = useMemo(() => {
-    const total = solicitudes.length;
-    const pendientes = solicitudes.filter((s) => s.estado === 'pendiente').length;
-    const enProceso = solicitudes.filter((s) => s.estado === 'en_proceso').length;
-    const completadas = solicitudes.filter((s) => s.estado === 'completada').length;
-    const rechazadas = solicitudes.filter((s) => s.estado === 'rechazada').length;
-
-    const porTipo = TIPOS_SOLICITUD.filter((t) => t.id !== 'radio').map((tipo) => ({
-      ...tipo,
-      cantidad: solicitudes.filter((s) => s.tipo === tipo.id).length,
-    }));
-
-    const porPrioridad = {
-      alta: solicitudes.filter((s) => s.prioridad === 'alta').length,
-      media: solicitudes.filter((s) => s.prioridad === 'media').length,
-      baja: solicitudes.filter((s) => s.prioridad === 'baja').length,
-    };
-
-    const asignaciones = {};
-    solicitudes.forEach((s) => {
-      if (s.asignadoA) {
-        if (!asignaciones[s.asignadoA.nombre]) {
-          asignaciones[s.asignadoA.nombre] = { total: 0, completadas: 0, enProceso: 0 };
-        }
-        asignaciones[s.asignadoA.nombre].total++;
-        if (s.estado === 'completada') asignaciones[s.asignadoA.nombre].completadas++;
-        if (s.estado === 'en_proceso') asignaciones[s.asignadoA.nombre].enProceso++;
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [statsRes, solRes] = await Promise.all([
+          api.get('/stats/dashboard'),
+          api.get('/solicitudes'),
+        ]);
+        setStats(statsRes);
+        setSolicitudes(Array.isArray(solRes) ? solRes : solRes.data || []);
+      } catch (error) {
+        console.error('Error fetching stats:', error);
+      } finally {
+        setLoading(false);
       }
-    });
-
-    const tasaCompletado = total > 0 ? Math.round((completadas / total) * 100) : 0;
-
-    return { total, pendientes, enProceso, completadas, rechazadas, porTipo, porPrioridad, asignaciones, tasaCompletado };
-  }, [solicitudes]);
+    };
+    fetchData();
+  }, []);
 
   const coloresBarraTipo = {
     blue: 'bg-blue-500',
@@ -57,6 +46,14 @@ export default function Seguimiento() {
     amber: 'bg-amber-500',
     emerald: 'bg-emerald-500',
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -262,8 +259,8 @@ export default function Seguimiento() {
                 <tr key={sol.id} className="border-b border-gray-50 hover:bg-gray-50">
                   <td className="py-3 text-sm font-mono font-medium text-blue-600">{sol.id}</td>
                   <td className="py-3 text-sm text-gray-900 max-w-[200px] truncate">{sol.titulo}</td>
-                  <td className="py-3 text-sm text-gray-600">{sol.tipoNombre}</td>
-                  <td className="py-3 text-sm text-gray-600">{sol.solicitante.nombre}</td>
+                  <td className="py-3 text-sm text-gray-600">{sol.tipoNombre || sol.tipoSolicitud?.nombre || ''}</td>
+                  <td className="py-3 text-sm text-gray-600">{sol.solicitante?.nombre || ''}</td>
                   <td className="py-3 text-sm text-gray-600">{sol.asignadoA?.nombre || '—'}</td>
                   <td className="py-3">
                     <span className={`badge ${
@@ -278,7 +275,7 @@ export default function Seguimiento() {
                        'Rechazada'}
                     </span>
                   </td>
-                  <td className="py-3 text-sm text-gray-500">{sol.fechaCreacion}</td>
+                  <td className="py-3 text-sm text-gray-500">{sol.fechaCreacion || (sol.createdAt ? new Date(sol.createdAt).toISOString().split('T')[0] : '')}</td>
                 </tr>
               ))}
             </tbody>

@@ -9,6 +9,7 @@ import ParrillaRadio from './components/ParrillaRadio';
 import CanalUrgente from './components/CanalUrgente';
 import Seguimiento from './components/Seguimiento';
 import Exportar from './components/Exportar';
+import GestionUsuarios from './components/GestionUsuarios';
 
 function RutaProtegida({ children, roles }) {
   const { usuario, cargando } = useAuth();
@@ -93,6 +94,14 @@ function AppRoutes() {
           element={
             <RutaProtegida roles={['admin']}>
               <Exportar />
+            </RutaProtegida>
+          }
+        />
+        <Route
+          path="usuarios"
+          element={
+            <RutaProtegida roles={['admin']}>
+              <GestionUsuarios />
             </RutaProtegida>
           }
         />

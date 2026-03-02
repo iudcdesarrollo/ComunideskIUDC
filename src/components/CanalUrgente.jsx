@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { obtenerUrgentes, guardarUrgentes } from '../data/mockData';
+import { api } from '../services/api';
 import {
   AlertTriangle,
   Send,
@@ -30,44 +30,63 @@ const estadoConfig = {
 
 export default function CanalUrgente() {
   const { usuario, esAdmin } = useAuth();
-  const [urgentes, setUrgentes] = useState(() => obtenerUrgentes());
+  const [urgentes, setUrgentes] = useState([]);
   const [titulo, setTitulo] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [enviado, setEnviado] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const enviarUrgente = (e) => {
+  useEffect(() => {
+    const fetchUrgentes = async () => {
+      try {
+        const res = await api.get('/urgentes');
+        setUrgentes(Array.isArray(res) ? res : []);
+      } catch (error) {
+        console.error('Error fetching urgentes:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchUrgentes();
+  }, []);
+
+  const enviarUrgente = async (e) => {
     e.preventDefault();
     if (!titulo.trim() || !descripcion.trim()) return;
 
-    const nuevo = {
-      id: Date.now(),
-      titulo: titulo.trim(),
-      descripcion: descripcion.trim(),
-      solicitante: {
-        id: usuario.id,
-        nombre: usuario.nombre,
-        cargo: usuario.cargo,
-      },
-      fechaCreacion: new Date().toISOString().split('T')[0],
-      estado: 'pendiente',
-    };
-
-    const nuevos = [nuevo, ...urgentes];
-    setUrgentes(nuevos);
-    guardarUrgentes(nuevos);
-    setTitulo('');
-    setDescripcion('');
-    setEnviado(true);
-    setTimeout(() => setEnviado(false), 3000);
+    try {
+      const nuevo = await api.post('/urgentes', {
+        titulo: titulo.trim(),
+        descripcion: descripcion.trim(),
+      });
+      setUrgentes((prev) => [nuevo, ...prev]);
+      setTitulo('');
+      setDescripcion('');
+      setEnviado(true);
+      setTimeout(() => setEnviado(false), 3000);
+    } catch (error) {
+      alert(error.data?.error || 'Error al enviar urgente');
+    }
   };
 
-  const cambiarEstado = (id, nuevoEstado) => {
-    const actualizados = urgentes.map((u) =>
-      u.id === id ? { ...u, estado: nuevoEstado } : u
+  const cambiarEstado = async (id, nuevoEstado) => {
+    try {
+      await api.patch(`/urgentes/${id}/estado`, { estado: nuevoEstado });
+      setUrgentes((prev) =>
+        prev.map((u) => u.id === id ? { ...u, estado: nuevoEstado } : u)
+      );
+    } catch (error) {
+      alert(error.data?.error || 'Error al cambiar estado');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
     );
-    setUrgentes(actualizados);
-    guardarUrgentes(actualizados);
-  };
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -160,9 +179,9 @@ export default function CanalUrgente() {
                       </div>
                       <p className="text-sm text-gray-600 mb-2">{urg.descripcion}</p>
                       <div className="flex items-center gap-4 text-xs text-gray-400">
-                        <span>{urg.solicitante.nombre}</span>
-                        <span>{urg.solicitante.cargo}</span>
-                        <span>{urg.fechaCreacion}</span>
+                        <span>{urg.solicitante?.nombre}</span>
+                        <span>{urg.solicitante?.cargo}</span>
+                        <span>{urg.fechaCreacion || (urg.createdAt ? new Date(urg.createdAt).toISOString().split('T')[0] : '')}</span>
                       </div>
                     </div>
 

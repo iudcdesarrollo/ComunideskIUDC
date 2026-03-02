@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   BarChart3,
   Download,
+  Users,
   X,
 } from 'lucide-react';
 
@@ -19,6 +20,7 @@ const iconMap = {
   AlertTriangle,
   BarChart3,
   Download,
+  Users,
 };
 
 export default function Sidebar({ abierto, cerrar }) {
@@ -65,6 +67,12 @@ export default function Sidebar({ abierto, cerrar }) {
       to: '/exportar',
       label: 'Exportar datos',
       icon: 'Download',
+      visible: usuario?.rol === 'admin',
+    },
+    {
+      to: '/usuarios',
+      label: 'Gestión de Usuarios',
+      icon: 'Users',
       visible: usuario?.rol === 'admin',
     },
   ];

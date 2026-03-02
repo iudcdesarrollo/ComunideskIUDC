@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Radio, Eye, EyeOff, AlertCircle, UserPlus, LogIn } from 'lucide-react';
-import { USUARIOS } from '../data/mockData';
 
 export default function Login() {
   const { iniciarSesion, registrarUsuario } = useAuth();
@@ -19,7 +18,7 @@ export default function Login() {
     return regex.test(correo);
   };
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
 
@@ -29,16 +28,14 @@ export default function Login() {
     }
 
     setCargando(true);
-    setTimeout(() => {
-      const resultado = iniciarSesion(email, password);
-      if (!resultado.exito) {
-        setError(resultado.mensaje);
-      }
-      setCargando(false);
-    }, 500);
+    const resultado = await iniciarSesion(email, password);
+    if (!resultado.exito) {
+      setError(resultado.mensaje);
+    }
+    setCargando(false);
   };
 
-  const handleRegistro = (e) => {
+  const handleRegistro = async (e) => {
     e.preventDefault();
     setError('');
 
@@ -63,13 +60,11 @@ export default function Login() {
     }
 
     setCargando(true);
-    setTimeout(() => {
-      const resultado = registrarUsuario(email, nombre.trim(), cargo.trim(), password);
-      if (!resultado.exito) {
-        setError(resultado.mensaje);
-      }
-      setCargando(false);
-    }, 500);
+    const resultado = await registrarUsuario(email, nombre.trim(), cargo.trim(), password);
+    if (!resultado.exito) {
+      setError(resultado.mensaje);
+    }
+    setCargando(false);
   };
 
   const seleccionarDemo = (user) => {
@@ -89,9 +84,9 @@ export default function Login() {
   };
 
   const rolesDemo = [
-    { ...USUARIOS[0], etiqueta: 'Super Admin' },
-    { ...USUARIOS[2], etiqueta: 'Equipo' },
-    { ...USUARIOS[6], etiqueta: 'Solicitante' },
+    { id: 1, email: 'admin@iudc.edu.co', password: 'admin123', etiqueta: 'Super Admin' },
+    { id: 3, email: 'carlos@iudc.edu.co', password: 'equipo123', etiqueta: 'Equipo' },
+    { id: 7, email: 'maria.lopez@iudc.edu.co', password: 'docente123', etiqueta: 'Solicitante' },
   ];
 
   return (

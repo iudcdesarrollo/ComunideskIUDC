@@ -1,10 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import {
-  USUARIOS,
-  obtenerUsuariosRegistrados,
-  guardarUsuarioRegistrado,
-  generarIdUsuario,
-} from '../data/mockData';
+import { api, setAccessToken, clearAccessToken } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -13,70 +8,53 @@ export function AuthProvider({ children }) {
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
-    const guardado = localStorage.getItem('comunidesk_usuario');
-    if (guardado) {
-      setUsuario(JSON.parse(guardado));
-    }
-    setCargando(false);
+    const restoreSession = async () => {
+      try {
+        const refreshResponse = await fetch('/api/auth/refresh', {
+          method: 'POST',
+          credentials: 'include',
+        });
+        if (refreshResponse.ok) {
+          const { accessToken } = await refreshResponse.json();
+          setAccessToken(accessToken);
+          const userData = await api.get('/auth/me');
+          setUsuario(userData.user);
+        }
+      } catch (error) {
+        console.log('No active session');
+      } finally {
+        setCargando(false);
+      }
+    };
+    restoreSession();
   }, []);
 
-  const iniciarSesion = (email, password) => {
-    // Buscar en usuarios predefinidos
-    let user = USUARIOS.find(
-      (u) => u.email === email && u.password === password
-    );
-
-    // Buscar en usuarios registrados
-    if (!user) {
-      const registrados = obtenerUsuariosRegistrados();
-      user = registrados.find(
-        (u) => u.email === email && u.password === password
-      );
-    }
-
-    if (user) {
-      const { password: _, ...userData } = user;
-      setUsuario(userData);
-      localStorage.setItem('comunidesk_usuario', JSON.stringify(userData));
+  const iniciarSesion = async (email, password) => {
+    try {
+      const data = await api.post('/auth/login', { email, password });
+      setAccessToken(data.accessToken);
+      setUsuario(data.user);
       return { exito: true };
+    } catch (error) {
+      return { exito: false, mensaje: error.data?.error || error.message || 'Error al iniciar sesión' };
     }
-    return { exito: false, mensaje: 'Correo o contraseña incorrectos' };
   };
 
-  const registrarUsuario = (email, nombre, cargo, password) => {
-    // Verificar si el correo ya existe en usuarios predefinidos
-    if (USUARIOS.find((u) => u.email === email)) {
-      return { exito: false, mensaje: 'Este correo ya está registrado en el sistema' };
+  const registrarUsuario = async (email, nombre, cargo, password) => {
+    try {
+      const data = await api.post('/auth/register', { email, nombre, cargo, password });
+      setAccessToken(data.accessToken);
+      setUsuario(data.user);
+      return { exito: true };
+    } catch (error) {
+      return { exito: false, mensaje: error.data?.error || error.message || 'Error al registrar' };
     }
-
-    // Verificar si el correo ya existe en usuarios registrados
-    const registrados = obtenerUsuariosRegistrados();
-    if (registrados.find((u) => u.email === email)) {
-      return { exito: false, mensaje: 'Este correo ya está registrado' };
-    }
-
-    const nuevoUsuario = {
-      id: generarIdUsuario(),
-      nombre,
-      email,
-      password,
-      rol: 'solicitante',
-      cargo,
-    };
-
-    guardarUsuarioRegistrado(nuevoUsuario);
-
-    // Iniciar sesión automáticamente tras el registro
-    const { password: _, ...userData } = nuevoUsuario;
-    setUsuario(userData);
-    localStorage.setItem('comunidesk_usuario', JSON.stringify(userData));
-
-    return { exito: true };
   };
 
-  const cerrarSesion = () => {
+  const cerrarSesion = async () => {
+    try { await api.post('/auth/logout'); } catch (error) { /* ignore */ }
+    clearAccessToken();
     setUsuario(null);
-    localStorage.removeItem('comunidesk_usuario');
   };
 
   const esAdmin = () => usuario?.rol === 'admin';
@@ -87,21 +65,7 @@ export function AuthProvider({ children }) {
   const puedeGestionarSolicitudes = () => esAdmin() || esEquipo();
 
   return (
-    <AuthContext.Provider
-      value={{
-        usuario,
-        cargando,
-        iniciarSesion,
-        registrarUsuario,
-        cerrarSesion,
-        esAdmin,
-        esDirector,
-        esEquipo,
-        esSolicitante,
-        puedeVerUrgentes,
-        puedeGestionarSolicitudes,
-      }}
-    >
+    <AuthContext.Provider value={{ usuario, cargando, iniciarSesion, registrarUsuario, cerrarSesion, esAdmin, esDirector, esEquipo, esSolicitante, puedeVerUrgentes, puedeGestionarSolicitudes }}>
       {children}
     </AuthContext.Provider>
   );
@@ -109,8 +73,6 @@ export function AuthProvider({ children }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth debe usarse dentro de AuthProvider');
-  }
+  if (!context) throw new Error('useAuth debe usarse dentro de AuthProvider');
   return context;
 }

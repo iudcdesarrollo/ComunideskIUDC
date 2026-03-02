@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { obtenerSolicitudes, obtenerReservasRadio, obtenerUrgentes } from '../data/mockData';
+import { useState, useEffect } from 'react';
+import { api } from '../services/api';
 import {
   Download,
   FileSpreadsheet,
@@ -16,9 +16,31 @@ export default function Exportar() {
   const [fechaHasta, setFechaHasta] = useState('');
   const [exportado, setExportado] = useState(false);
 
-  const solicitudes = useMemo(() => obtenerSolicitudes(), []);
-  const reservas = useMemo(() => obtenerReservasRadio(), []);
-  const urgentes = useMemo(() => obtenerUrgentes(), []);
+  const [solicitudes, setSolicitudes] = useState([]);
+  const [reservas, setReservas] = useState([]);
+  const [urgentes, setUrgentes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [descargando, setDescargando] = useState(false);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [solRes, radioRes, urgRes] = await Promise.all([
+          api.get('/solicitudes'),
+          api.get('/radio/reservas?semana=all').catch(() => []),
+          api.get('/urgentes').catch(() => []),
+        ]);
+        setSolicitudes(Array.isArray(solRes) ? solRes : solRes.data || []);
+        setReservas(Array.isArray(radioRes) ? radioRes : radioRes.reservas || []);
+        setUrgentes(Array.isArray(urgRes) ? urgRes : []);
+      } catch (error) {
+        console.error('Error fetching export data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
   const opciones = [
     {
@@ -47,72 +69,35 @@ export default function Exportar() {
     },
   ];
 
-  const generarCSV = (datos, columnas) => {
-    const header = columnas.map((c) => c.label).join(',');
-    const filas = datos.map((d) =>
-      columnas.map((c) => {
-        const valor = c.getValue(d);
-        return `"${String(valor).replace(/"/g, '""')}"`;
-      }).join(',')
-    );
-    return [header, ...filas].join('\n');
-  };
+  const descargar = async () => {
+    setDescargando(true);
+    try {
+      const endpoint = tipoExportacion === 'solicitudes' ? '/exportar/solicitudes'
+        : tipoExportacion === 'radio' ? '/exportar/radio'
+        : '/exportar/urgentes';
 
-  const descargar = () => {
-    let csv = '';
-    let filename = '';
+      const blob = await api.get(endpoint);
 
-    if (tipoExportacion === 'solicitudes') {
-      csv = generarCSV(solicitudes, [
-        { label: 'Ticket', getValue: (d) => d.id },
-        { label: 'Tipo', getValue: (d) => d.tipoNombre },
-        { label: 'Título', getValue: (d) => d.titulo },
-        { label: 'Descripción', getValue: (d) => d.descripcion },
-        { label: 'Solicitante', getValue: (d) => d.solicitante.nombre },
-        { label: 'Cargo', getValue: (d) => d.solicitante.cargo },
-        { label: 'Estado', getValue: (d) => d.estado },
-        { label: 'Prioridad', getValue: (d) => d.prioridad },
-        { label: 'Asignado a', getValue: (d) => d.asignadoA?.nombre || 'Sin asignar' },
-        { label: 'Fecha de creación', getValue: (d) => d.fechaCreacion },
-      ]);
-      filename = 'solicitudes_comunidesk.csv';
-    } else if (tipoExportacion === 'radio') {
-      csv = generarCSV(reservas, [
-        { label: 'Programa', getValue: (d) => d.formulario?.nombre_programa || 'Sin nombre' },
-        { label: 'Día', getValue: (d) => d.dia },
-        { label: 'Hora', getValue: (d) => d.hora },
-        { label: 'Semana', getValue: (d) => d.semana },
-        { label: 'Solicitante', getValue: (d) => d.solicitante.nombre },
-        { label: 'Estado', getValue: (d) => d.estado },
-        { label: 'Tema', getValue: (d) => d.formulario?.tema || '' },
-        { label: 'Conductor', getValue: (d) => d.formulario?.conductor?.nombre || '' },
-      ]);
-      filename = 'reservas_radio_comunidesk.csv';
-    } else {
-      csv = generarCSV(urgentes, [
-        { label: 'Título', getValue: (d) => d.titulo },
-        { label: 'Descripción', getValue: (d) => d.descripcion },
-        { label: 'Solicitante', getValue: (d) => d.solicitante.nombre },
-        { label: 'Cargo', getValue: (d) => d.solicitante.cargo },
-        { label: 'Estado', getValue: (d) => d.estado },
-        { label: 'Fecha', getValue: (d) => d.fechaCreacion },
-      ]);
-      filename = 'urgentes_comunidesk.csv';
+      const filename = tipoExportacion === 'solicitudes' ? 'solicitudes_comunidesk.csv'
+        : tipoExportacion === 'radio' ? 'reservas_radio_comunidesk.csv'
+        : 'urgentes_comunidesk.csv';
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      setExportado(true);
+      setTimeout(() => setExportado(false), 3000);
+    } catch (error) {
+      alert(error.data?.error || 'Error al exportar');
+    } finally {
+      setDescargando(false);
     }
-
-    const BOM = '\uFEFF';
-    const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-
-    setExportado(true);
-    setTimeout(() => setExportado(false), 3000);
   };
 
   const coloresOpcion = {
@@ -120,6 +105,14 @@ export default function Exportar() {
     red: { bg: 'bg-red-50', border: 'border-red-200', icon: 'text-red-600', active: 'ring-red-200 border-red-400' },
     amber: { bg: 'bg-amber-50', border: 'border-amber-200', icon: 'text-amber-600', active: 'ring-amber-200 border-amber-400' },
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -186,7 +179,7 @@ export default function Exportar() {
                   <tr key={s.id} className="border-b border-gray-50">
                     <td className="py-2 font-mono text-blue-600">{s.id}</td>
                     <td className="py-2 text-gray-900 truncate max-w-[200px]">{s.titulo}</td>
-                    <td className="py-2 text-gray-600">{s.tipoNombre}</td>
+                    <td className="py-2 text-gray-600">{s.tipoNombre || s.tipoSolicitud?.nombre || ''}</td>
                     <td className="py-2">
                       <span className={`badge ${
                         s.estado === 'pendiente' ? 'badge-pendiente' :
@@ -219,7 +212,7 @@ export default function Exportar() {
                     <td className="py-2 text-gray-900">{r.formulario?.nombre_programa || 'Sin nombre'}</td>
                     <td className="py-2 text-gray-600">{r.dia}</td>
                     <td className="py-2 text-gray-600">{r.hora}</td>
-                    <td className="py-2 text-gray-600">{r.solicitante.nombre}</td>
+                    <td className="py-2 text-gray-600">{r.solicitante?.nombre || ''}</td>
                   </tr>
                 ))}
               </tbody>
@@ -240,9 +233,9 @@ export default function Exportar() {
                 {urgentes.slice(0, 5).map((u) => (
                   <tr key={u.id} className="border-b border-gray-50">
                     <td className="py-2 text-gray-900">{u.titulo}</td>
-                    <td className="py-2 text-gray-600">{u.solicitante.nombre}</td>
+                    <td className="py-2 text-gray-600">{u.solicitante?.nombre || ''}</td>
                     <td className="py-2 text-gray-600 capitalize">{u.estado}</td>
-                    <td className="py-2 text-gray-600">{u.fechaCreacion}</td>
+                    <td className="py-2 text-gray-600">{u.fechaCreacion || (u.createdAt ? new Date(u.createdAt).toISOString().split('T')[0] : '')}</td>
                   </tr>
                 ))}
               </tbody>
@@ -261,9 +254,9 @@ export default function Exportar() {
           </div>
         </div>
 
-        <button onClick={descargar} className="btn-primary flex items-center gap-2 w-full sm:w-auto justify-center">
+        <button onClick={descargar} disabled={descargando} className="btn-primary flex items-center gap-2 w-full sm:w-auto justify-center disabled:opacity-50">
           <Download className="w-4 h-4" />
-          Descargar
+          {descargando ? 'Descargando...' : 'Descargar'}
         </button>
       </div>
 

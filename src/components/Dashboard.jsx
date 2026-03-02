@@ -1,7 +1,7 @@
-import { useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { obtenerSolicitudes, obtenerUrgentes, obtenerReservasRadio, TIPOS_SOLICITUD } from '../data/mockData';
+import { api } from '../services/api';
 import {
   FileText,
   Clock,
@@ -36,15 +36,48 @@ export default function Dashboard() {
   const { usuario, puedeVerUrgentes, puedeGestionarSolicitudes, esAdmin, esEquipo, esSolicitante } = useAuth();
   const navigate = useNavigate();
 
-  const solicitudes = useMemo(() => obtenerSolicitudes(), []);
-  const urgentes = useMemo(() => obtenerUrgentes(), []);
-  const reservasRadio = useMemo(() => obtenerReservasRadio(), []);
+  const [solicitudes, setSolicitudes] = useState([]);
+  const [urgentes, setUrgentes] = useState([]);
+  const [reservasPendientesCount, setReservasPendientesCount] = useState(0);
+  const [tipos, setTipos] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const misSolicitudes = esSolicitante()
-    ? solicitudes.filter((s) => s.solicitante.id === usuario.id)
-    : esEquipo()
-      ? solicitudes.filter((s) => s.asignadoA?.id === usuario.id || s.estado === 'pendiente')
-      : solicitudes;
+  // Fetch data on mount
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [solRes, tiposRes] = await Promise.all([
+          api.get('/solicitudes'),
+          api.get('/tipos'),
+        ]);
+        setSolicitudes(Array.isArray(solRes) ? solRes : solRes.data || []);
+        setTipos(Array.isArray(tiposRes) ? tiposRes : []);
+
+        // Only fetch urgentes if user can see them
+        if (puedeVerUrgentes()) {
+          try {
+            const urgRes = await api.get('/urgentes');
+            setUrgentes(Array.isArray(urgRes) ? urgRes : []);
+          } catch (e) { /* ignore if forbidden */ }
+        }
+
+        // Fetch radio pendientes count for admin/equipo
+        if (puedeGestionarSolicitudes()) {
+          try {
+            const radioRes = await api.get('/radio/reservas/pendientes');
+            setReservasPendientesCount(Array.isArray(radioRes) ? radioRes.length : 0);
+          } catch (e) { /* ignore */ }
+        }
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  const misSolicitudes = solicitudes;
 
   const stats = {
     total: misSolicitudes.length,
@@ -53,13 +86,21 @@ export default function Dashboard() {
     completadas: misSolicitudes.filter((s) => s.estado === 'completada').length,
   };
 
-  const reservasPendientes = reservasRadio.filter((r) => r.estado === 'pendiente').length;
+  const reservasPendientes = reservasPendientesCount;
 
   const estadoBadge = (estado) => {
     const map = { pendiente: 'badge-pendiente', en_proceso: 'badge-en-proceso', completada: 'badge-completada', rechazada: 'badge-rechazada' };
     const labels = { pendiente: 'Pendiente', en_proceso: 'En proceso', completada: 'Completada', rechazada: 'Rechazada' };
     return <span className={map[estado]}>{labels[estado]}</span>;
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -224,7 +265,7 @@ export default function Dashboard() {
           <div className="lg:col-span-1">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Crear solicitud</h2>
             <div className="space-y-2">
-              {TIPOS_SOLICITUD.filter((t) => t.id !== 'radio').map((tipo) => {
+              {tipos.filter((t) => t.id !== 'radio').map((tipo) => {
                 const Icon = iconosTipo[tipo.icono];
                 return (
                   <button

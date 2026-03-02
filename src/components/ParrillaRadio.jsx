@@ -1,12 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import {
-  FRANJAS_RADIO,
-  DIAS_SEMANA,
-  PROGRAMAS_FIJOS,
-  obtenerReservasRadio,
-  guardarReservasRadio,
-} from '../data/mockData';
+import { api } from '../services/api';
 import {
   ChevronLeft,
   ChevronRight,
@@ -44,13 +38,6 @@ function formatearFechaSemana(lunes) {
   return `${lunes.getDate()} - ${viernes.getDate()} de ${meses[lunes.getMonth()]} ${lunes.getFullYear()}`;
 }
 
-function obtenerFechasSemana(lunes) {
-  return DIAS_SEMANA.map((dia, i) => {
-    const fecha = new Date(lunes);
-    fecha.setDate(fecha.getDate() + i);
-    return { dia, fecha: fecha.getDate() };
-  });
-}
 
 function obtenerFechaDia(lunes, diaIndex) {
   const fecha = new Date(lunes);
@@ -63,13 +50,17 @@ const INVITADO_VACIO = { nombre: '', perfil: '', contacto: '', cedula: '' };
 export default function ParrillaRadio() {
   const { usuario, puedeGestionarSolicitudes } = useAuth();
   const [semanaActual, setSemanaActual] = useState(() => obtenerLunesDeSemana(new Date()));
-  const [reservas, setReservas] = useState(() => obtenerReservasRadio());
+  const [reservas, setReservas] = useState([]);
   const [modalReserva, setModalReserva] = useState(false);
   const [modalDetalle, setModalDetalle] = useState(false);
   const [slotSeleccionado, setSlotSeleccionado] = useState(null);
   const [reservaDetalle, setReservaDetalle] = useState(null);
   const [reservaExitosa, setReservaExitosa] = useState(false);
   const [vistaAdmin, setVistaAdmin] = useState(false);
+  const [FRANJAS_RADIO, setFranjasRadio] = useState([]);
+  const [DIAS_SEMANA, setDiasSemana] = useState([]);
+  const [PROGRAMAS_FIJOS, setProgramasFijos] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   // Estado del formulario completo de radio
   const [formRadio, setFormRadio] = useState({
@@ -82,7 +73,47 @@ export default function ParrillaRadio() {
   });
 
   const semanaKey = semanaActual.toISOString().split('T')[0];
-  const fechasSemana = useMemo(() => obtenerFechasSemana(semanaActual), [semanaActual]);
+  const fechasSemana = useMemo(() => {
+    return DIAS_SEMANA.map((dia, i) => {
+      const fecha = new Date(semanaActual);
+      fecha.setDate(fecha.getDate() + i);
+      return { dia, fecha: fecha.getDate() };
+    });
+  }, [semanaActual, DIAS_SEMANA]);
+
+
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const [configRes, programasRes] = await Promise.all([
+          api.get('/radio/config'),
+          api.get('/radio/programas-fijos'),
+        ]);
+        setFranjasRadio(configRes.franjas || []);
+        setDiasSemana(configRes.dias || []);
+        setProgramasFijos(Array.isArray(programasRes) ? programasRes : []);
+      } catch (error) {
+        console.error('Error fetching radio config:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchConfig();
+  }, []);
+
+  useEffect(() => {
+    if (!semanaActual) return;
+    const fetchReservas = async () => {
+      try {
+        const semanaKey = semanaActual.toISOString().split('T')[0];
+        const res = await api.get(`/radio/reservas?semana=${semanaKey}`);
+        setReservas(Array.isArray(res) ? res : res.reservas || []);
+      } catch (error) {
+        console.error('Error fetching reservas:', error);
+      }
+    };
+    fetchReservas();
+  }, [semanaActual]);
 
   const esProgramaFijo = (dia, hora) => PROGRAMAS_FIJOS.find((p) => p.dia === dia && p.hora === hora);
   const obtenerReserva = (dia, hora) => reservas.find((r) => r.dia === dia && r.hora === hora && r.semana === semanaKey);
@@ -132,50 +163,57 @@ export default function ParrillaRadio() {
     setFormRadio((prev) => ({ ...prev, invitados: prev.invitados.filter((_, i) => i !== index) }));
   };
 
-  const reservarEspacio = (e) => {
+  const reservarEspacio = async (e) => {
     e.preventDefault();
     if (!formRadio.nombre_programa.trim() || !slotSeleccionado) return;
 
-    const diaIndex = DIAS_SEMANA.indexOf(slotSeleccionado.dia);
-    const fechaDia = obtenerFechaDia(semanaActual, diaIndex);
+    try {
+      const diaIndex = DIAS_SEMANA.indexOf(slotSeleccionado.dia);
+      const fechaDia = obtenerFechaDia(semanaActual, diaIndex);
 
-    const nuevaReserva = {
-      id: Date.now(),
-      dia: slotSeleccionado.dia,
-      hora: slotSeleccionado.hora,
-      semana: semanaKey,
-      solicitante: { id: usuario.id, nombre: usuario.nombre },
-      estado: 'pendiente',
-      formulario: {
-        responsable: usuario.nombre,
-        fecha: fechaDia,
-        nombre_programa: formRadio.nombre_programa.trim(),
-        tema: formRadio.tema.trim(),
-        duracion: formRadio.duracion.trim(),
-        conductor: { ...formRadio.conductor },
-        invitados: formRadio.invitados.filter((inv) => inv.nombre.trim()),
-        contenido: formRadio.contenido.trim(),
-      },
-    };
+      const nuevaReserva = await api.post('/radio/reservas', {
+        dia: slotSeleccionado.dia,
+        hora: slotSeleccionado.hora,
+        semana: semanaKey,
+        formulario: {
+          responsable: usuario.nombre,
+          fecha: fechaDia,
+          nombre_programa: formRadio.nombre_programa.trim(),
+          tema: formRadio.tema.trim(),
+          duracion: formRadio.duracion.trim(),
+          conductor: { ...formRadio.conductor },
+          invitados: formRadio.invitados.filter((inv) => inv.nombre.trim()),
+          contenido: formRadio.contenido.trim(),
+        },
+      });
 
-    const nuevas = [...reservas, nuevaReserva];
-    setReservas(nuevas);
-    guardarReservasRadio(nuevas);
-    setReservaExitosa(true);
+      setReservas((prev) => [...prev, nuevaReserva]);
+      setReservaExitosa(true);
+    } catch (error) {
+      alert(error.data?.error || 'Error al reservar espacio');
+    }
   };
 
-  const aprobarReserva = (id) => {
-    const actualizadas = reservas.map((r) => r.id === id ? { ...r, estado: 'aprobada' } : r);
-    setReservas(actualizadas);
-    guardarReservasRadio(actualizadas);
-    setModalDetalle(false);
+  const aprobarReserva = async (id) => {
+    try {
+      await api.patch(`/radio/reservas/${id}/aprobar`);
+      setReservas((prev) =>
+        prev.map((r) => r.id === id ? { ...r, estado: 'aprobada' } : r)
+      );
+      setModalDetalle(false);
+    } catch (error) {
+      alert(error.data?.error || 'Error al aprobar');
+    }
   };
 
-  const rechazarReserva = (id) => {
-    const actualizadas = reservas.filter((r) => r.id !== id);
-    setReservas(actualizadas);
-    guardarReservasRadio(actualizadas);
-    setModalDetalle(false);
+  const rechazarReserva = async (id) => {
+    try {
+      await api.delete(`/radio/reservas/${id}`);
+      setReservas((prev) => prev.filter((r) => r.id !== id));
+      setModalDetalle(false);
+    } catch (error) {
+      alert(error.data?.error || 'Error al rechazar');
+    }
   };
 
   const semanaAnterior = () => {
@@ -245,6 +283,14 @@ export default function ParrillaRadio() {
 
     return <div className="h-full bg-gray-50 rounded-lg" />;
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">

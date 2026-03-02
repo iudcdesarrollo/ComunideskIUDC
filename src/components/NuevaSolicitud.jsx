@@ -1,13 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import {
-  TIPOS_SOLICITUD,
-  CAMPOS_SOLICITUD,
-  obtenerSolicitudes,
-  guardarSolicitudes,
-  generarIdSolicitud,
-} from '../data/mockData';
+import { api, apiUpload } from '../services/api';
 import {
   ArrowLeft,
   Send,
@@ -72,16 +66,48 @@ export default function NuevaSolicitud() {
   const [formData, setFormData] = useState({});
   const [enviado, setEnviado] = useState(false);
   const [idGenerado, setIdGenerado] = useState('');
+  const [tipos, setTipos] = useState([]);
+  const [camposSolicitud, setCamposSolicitud] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [enviando, setEnviando] = useState(false);
+  const [archivoFile, setArchivoFile] = useState(null);
 
   useEffect(() => {
     setFormData({});
+    setArchivoFile(null);
   }, [tipoSeleccionado]);
+
+  useEffect(() => {
+    const fetchTipos = async () => {
+      try {
+        const tiposRes = await api.get('/tipos');
+        const tiposData = Array.isArray(tiposRes) ? tiposRes : [];
+        setTipos(tiposData);
+
+        const camposMap = {};
+        for (const tipo of tiposData) {
+          try {
+            const campos = await api.get(`/tipos/${tipo.id}/campos`);
+            camposMap[tipo.id] = Array.isArray(campos) ? campos : [];
+          } catch (e) {
+            camposMap[tipo.id] = [];
+          }
+        }
+        setCamposSolicitud(camposMap);
+      } catch (error) {
+        console.error('Error fetching tipos:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchTipos();
+  }, []);
 
   const handleChange = (name, value) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (tipoSeleccionado === 'radio') {
@@ -89,38 +115,39 @@ export default function NuevaSolicitud() {
       return;
     }
 
-    const nuevoId = generarIdSolicitud();
-    const tipo = TIPOS_SOLICITUD.find((t) => t.id === tipoSeleccionado);
+    setEnviando(true);
+    try {
+      let body;
+      if (archivoFile) {
+        body = new FormData();
+        body.append('tipoId', tipoSeleccionado);
+        body.append('titulo', formData.titulo || formData.evento_actividad || 'Sin título');
+        body.append('descripcion', formData.descripcion || formData.objetivo || '');
+        body.append('datos', JSON.stringify({ ...formData }));
+        body.append('archivo', archivoFile);
 
-    const nuevaSolicitud = {
-      id: nuevoId,
-      tipo: tipoSeleccionado,
-      tipoNombre: tipo.nombre,
-      titulo: formData.titulo || formData.evento_actividad || 'Sin título',
-      descripcion: formData.descripcion || formData.objetivo || '',
-      solicitante: {
-        id: usuario.id,
-        nombre: usuario.nombre,
-        cargo: usuario.cargo,
-      },
-      fechaCreacion: new Date().toISOString().split('T')[0],
-      estado: 'pendiente',
-      asignadoA: null,
-      prioridad: 'media',
-      tiempoEntrega: tipo.tiempoEntrega,
-      datos: { ...formData },
-    };
+        const result = await apiUpload('/solicitudes', body);
+        setIdGenerado(result.id);
+      } else {
+        const result = await api.post('/solicitudes', {
+          tipoId: tipoSeleccionado,
+          titulo: formData.titulo || formData.evento_actividad || 'Sin título',
+          descripcion: formData.descripcion || formData.objetivo || '',
+          datos: { ...formData },
+        });
+        setIdGenerado(result.id);
+      }
 
-    const solicitudes = obtenerSolicitudes();
-    solicitudes.unshift(nuevaSolicitud);
-    guardarSolicitudes(solicitudes);
-
-    setIdGenerado(nuevoId);
-    setEnviado(true);
+      setEnviado(true);
+    } catch (error) {
+      alert(error.data?.error || error.message || 'Error al enviar solicitud');
+    } finally {
+      setEnviando(false);
+    }
   };
 
   if (enviado) {
-    const tipo = TIPOS_SOLICITUD.find((t) => t.id === tipoSeleccionado);
+    const tipo = tipos.find((t) => t.id === tipoSeleccionado);
     return (
       <div className="max-w-lg mx-auto mt-12 text-center">
         <div className="card p-10">
@@ -150,6 +177,7 @@ export default function NuevaSolicitud() {
                 setEnviado(false);
                 setTipoSeleccionado(null);
                 setFormData({});
+                setArchivoFile(null);
               }}
               className="btn-secondary"
             >
@@ -157,6 +185,14 @@ export default function NuevaSolicitud() {
             </button>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
     );
   }
@@ -185,7 +221,7 @@ export default function NuevaSolicitud() {
       {/* Paso 1: Seleccionar tipo */}
       {!tipoSeleccionado && (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {TIPOS_SOLICITUD.map((tipo) => {
+          {tipos.map((tipo) => {
             const Icon = iconosTipo[tipo.icono];
             return (
               <button
@@ -211,7 +247,7 @@ export default function NuevaSolicitud() {
         <form onSubmit={handleSubmit} className="card space-y-5">
           {/* Tipo seleccionado */}
           {(() => {
-            const tipo = TIPOS_SOLICITUD.find((t) => t.id === tipoSeleccionado);
+            const tipo = tipos.find((t) => t.id === tipoSeleccionado);
             const Icon = iconosTipo[tipo.icono];
             return (
               <>
@@ -241,7 +277,7 @@ export default function NuevaSolicitud() {
           })()}
 
           {/* Campos dinámicos */}
-          {CAMPOS_SOLICITUD[tipoSeleccionado]?.map((campo) => (
+          {camposSolicitud[tipoSeleccionado]?.map((campo) => (
             <div key={campo.name}>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 {campo.label}
@@ -282,7 +318,10 @@ export default function NuevaSolicitud() {
                       </div>
                       <button
                         type="button"
-                        onClick={() => handleChange(campo.name, '')}
+                        onClick={() => {
+                          handleChange(campo.name, '');
+                          setArchivoFile(null);
+                        }}
                         className="p-1 hover:bg-blue-100 rounded-lg text-blue-400 hover:text-blue-600"
                       >
                         <X className="w-4 h-4" />
@@ -305,6 +344,7 @@ export default function NuevaSolicitud() {
                           const file = e.target.files[0];
                           if (file) {
                             handleChange(campo.name, file.name);
+                            setArchivoFile(file);
                           }
                         }}
                       />
@@ -326,9 +366,9 @@ export default function NuevaSolicitud() {
 
           {/* Botón enviar */}
           <div className="flex gap-3 pt-4 border-t border-gray-100">
-            <button type="submit" className="btn-primary flex items-center gap-2">
+            <button type="submit" disabled={enviando} className="btn-primary flex items-center gap-2 disabled:opacity-50">
               <Send className="w-4 h-4" />
-              Enviar solicitud
+              {enviando ? 'Enviando...' : 'Enviar solicitud'}
             </button>
             <button
               type="button"
