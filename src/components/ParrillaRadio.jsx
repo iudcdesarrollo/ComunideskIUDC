@@ -45,6 +45,21 @@ function obtenerFechaDia(lunes, diaIndex) {
   return fecha.toISOString().split('T')[0];
 }
 
+function parsearHora12a24(horaTexto) {
+  const normalizada = horaTexto.toLowerCase().replace(/\s+/g, '');
+  const match = normalizada.match(/^(\d{1,2}):(\d{2})(a\.?m\.?|p\.?m\.?)$/);
+  if (!match) return null;
+
+  let horas = Number(match[1]);
+  const minutos = Number(match[2]);
+  const periodo = match[3];
+
+  if (periodo.startsWith('p') && horas !== 12) horas += 12;
+  if (periodo.startsWith('a') && horas === 12) horas = 0;
+
+  return { horas, minutos };
+}
+
 const INVITADO_VACIO = { nombre: '', perfil: '', contacto: '', cedula: '' };
 
 export default function ParrillaRadio() {
@@ -117,7 +132,20 @@ export default function ParrillaRadio() {
 
   const esProgramaFijo = (dia, hora) => PROGRAMAS_FIJOS.find((p) => p.dia === dia && p.hora === hora);
   const obtenerReserva = (dia, hora) => reservas.find((r) => r.dia === dia && r.hora === hora && r.semana === semanaKey);
-  const estaDisponible = (dia, hora) => !esProgramaFijo(dia, hora) && !obtenerReserva(dia, hora);
+  const esPasado = (dia, hora) => {
+    const diaIndex = DIAS_SEMANA.indexOf(dia);
+    if (diaIndex < 0) return false;
+
+    const horaParseada = parsearHora12a24(hora);
+    if (!horaParseada) return false;
+
+    const fechaDia = obtenerFechaDia(semanaActual, diaIndex);
+    const fechaSlot = new Date(`${fechaDia}T00:00:00`);
+    fechaSlot.setHours(horaParseada.horas, horaParseada.minutos, 0, 0);
+
+    return fechaSlot < new Date();
+  };
+  const estaDisponible = (dia, hora) => !esPasado(dia, hora) && !esProgramaFijo(dia, hora) && !obtenerReserva(dia, hora);
 
   const pendientes = reservas.filter((r) => r.estado === 'pendiente');
 
@@ -231,6 +259,7 @@ export default function ParrillaRadio() {
   const renderCelda = (dia, hora) => {
     const fijo = esProgramaFijo(dia, hora);
     const reserva = obtenerReserva(dia, hora);
+    const slotPasado = esPasado(dia, hora);
     const disponible = estaDisponible(dia, hora);
 
     if (fijo) {
@@ -268,6 +297,14 @@ export default function ParrillaRadio() {
       );
     }
 
+    if (slotPasado) {
+      return (
+        <div className="h-full bg-gray-100 rounded-lg flex items-center justify-center">
+          <span className="text-[10px] text-gray-400">No disponible</span>
+        </div>
+      );
+    }
+
     if (disponible) {
       return (
         <button
@@ -293,7 +330,7 @@ export default function ParrillaRadio() {
   }
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6">
       {/* Encabezado */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -339,7 +376,7 @@ export default function ParrillaRadio() {
                     <p className="text-xs text-gray-400 mt-0.5">Tema: {res.formulario.tema}</p>
                   )}
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <button onClick={() => verDetalle(res)} className="btn-secondary text-xs py-1.5 px-3 flex items-center gap-1">
                     <Eye className="w-3.5 h-3.5" /> Ver detalle
                   </button>
@@ -580,7 +617,7 @@ export default function ParrillaRadio() {
                   </div>
                 </div>
 
-                <div className="flex gap-3 p-6 border-t border-gray-100">
+                <div className="flex flex-wrap gap-3 p-6 border-t border-gray-100">
                   <button type="submit" className="btn-primary flex items-center gap-2">
                     <Send className="w-4 h-4" />
                     Enviar solicitud de reserva
@@ -733,7 +770,7 @@ export default function ParrillaRadio() {
 
             {/* Acciones de aprobación (solo equipo/admin) */}
             {puedeGestionarSolicitudes() && reservaDetalle.estado === 'pendiente' && (
-              <div className="flex gap-3 p-6 border-t border-gray-100">
+              <div className="flex flex-wrap gap-3 p-6 border-t border-gray-100">
                 <button onClick={() => aprobarReserva(reservaDetalle.id)} className="bg-emerald-500 hover:bg-emerald-600 text-white font-medium py-2.5 px-5 rounded-xl flex items-center gap-2 transition-colors">
                   <Check className="w-4 h-4" /> Aprobar reserva
                 </button>
