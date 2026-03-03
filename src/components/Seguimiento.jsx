@@ -56,7 +56,7 @@ export default function Seguimiento() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
+    <div className="max-w-7xl mx-auto space-y-6 px-4 sm:px-6">
       {/* Encabezado */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">

@@ -89,7 +89,7 @@ export default function CanalUrgente() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6 px-4 sm:px-6">
       {/* Encabezado */}
       <div className="flex items-center gap-3">
         <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
@@ -178,7 +178,7 @@ export default function CanalUrgente() {
                         </span>
                       </div>
                       <p className="text-sm text-gray-600 mb-2">{urg.descripcion}</p>
-                      <div className="flex items-center gap-4 text-xs text-gray-400">
+                      <div className="flex items-center gap-4 text-xs text-gray-400 flex-wrap">
                         <span>{urg.solicitante?.nombre}</span>
                         <span>{urg.solicitante?.cargo}</span>
                         <span>{urg.fechaCreacion || (urg.createdAt ? new Date(urg.createdAt).toISOString().split('T')[0] : '')}</span>
@@ -190,7 +190,7 @@ export default function CanalUrgente() {
                         <select
                           value={urg.estado}
                           onChange={(e) => cambiarEstado(urg.id, e.target.value)}
-                          className="input-field text-sm w-auto"
+                          className="input-field text-sm w-full sm:w-auto"
                         >
                           <option value="pendiente">Pendiente</option>
                           <option value="en_proceso">En proceso</option>

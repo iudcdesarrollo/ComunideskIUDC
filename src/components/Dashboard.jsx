@@ -103,7 +103,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6">
       {/* Encabezado */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -118,7 +118,7 @@ export default function Dashboard() {
                 : 'Gestiona tus solicitudes y reservas'}
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           {(esSolicitante() || esAdmin()) && (
             <button onClick={() => navigate('/nueva-solicitud')} className="btn-primary flex items-center gap-2">
               <PlusCircle className="w-4 h-4" />

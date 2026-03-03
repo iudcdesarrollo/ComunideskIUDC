@@ -198,7 +198,7 @@ export default function NuevaSolicitud() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="max-w-3xl mx-auto space-y-6 px-4 sm:px-6">
       <div className="flex items-center gap-3">
         {tipoSeleccionado && (
           <button
@@ -365,7 +365,7 @@ export default function NuevaSolicitud() {
           ))}
 
           {/* Botón enviar */}
-          <div className="flex gap-3 pt-4 border-t border-gray-100">
+          <div className="flex flex-wrap gap-3 pt-4 border-t border-gray-100">
             <button type="submit" disabled={enviando} className="btn-primary flex items-center gap-2 disabled:opacity-50">
               <Send className="w-4 h-4" />
               {enviando ? 'Enviando...' : 'Enviar solicitud'}

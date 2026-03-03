@@ -174,7 +174,7 @@ export default function MisSolicitudes() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="max-w-5xl mx-auto space-y-6 px-4 sm:px-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">
           {esSolicitante()
@@ -202,14 +202,14 @@ export default function MisSolicitudes() {
               placeholder={esSolicitante() ? 'Buscar por título o ticket...' : 'Buscar por título, ticket o solicitante...'}
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
-              className="input-field pl-10"
+              className="input-field pl-10 w-full"
             />
           </div>
-          <div className="flex gap-3">
+          <div className="grid grid-cols-1 sm:flex gap-3">
             <select
               value={filtroEstado}
               onChange={(e) => setFiltroEstado(e.target.value)}
-              className="input-field w-auto"
+              className="input-field w-full sm:w-auto"
             >
               <option value="todos">Todos los estados</option>
               <option value="pendiente">Pendiente</option>
@@ -220,7 +220,7 @@ export default function MisSolicitudes() {
             <select
               value={filtroTipo}
               onChange={(e) => setFiltroTipo(e.target.value)}
-              className="input-field w-auto"
+              className="input-field w-full sm:w-auto"
             >
               <option value="todos">Todos los tipos</option>
               <option value="registro_control">Registro y Control</option>
@@ -395,46 +395,46 @@ export default function MisSolicitudes() {
 
                   {/* VISTA ADMIN: control total */}
                   {esAdmin() && (
-                    <div className="flex flex-wrap gap-3 pt-3 border-t border-gray-100">
-                      <div>
-                        <label className="block text-xs text-gray-500 mb-1">Asignar a</label>
-                        <select
-                          value={sol.asignadoA?.id || ''}
-                          onChange={(e) => asignarMiembro(sol.id, e.target.value)}
-                          className="input-field w-auto text-sm"
-                        >
-                          <option value="">Sin asignar</option>
-                          {equipo.map((m) => (
-                            <option key={m.id} value={m.id}>{m.nombre} ({m.cargo})</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500 mb-1">Estado</label>
-                        <select
-                          value={sol.estado}
-                          onChange={(e) => cambiarEstado(sol.id, e.target.value)}
-                          className="input-field w-auto text-sm"
-                        >
-                          <option value="pendiente">Pendiente</option>
-                          <option value="en_proceso">En proceso</option>
-                          <option value="completada">Completada</option>
-                          <option value="rechazada">Rechazada</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500 mb-1">Prioridad</label>
-                        <select
-                          value={sol.prioridad}
-                          onChange={(e) => cambiarPrioridad(sol.id, e.target.value)}
-                          className="input-field w-auto text-sm"
-                        >
-                          <option value="alta">Alta</option>
-                          <option value="media">Media</option>
-                          <option value="baja">Baja</option>
-                        </select>
-                      </div>
+                  <div className="flex flex-col sm:flex-row gap-3 pt-3 border-t border-gray-100">
+                    <div className="w-full sm:w-auto">
+                      <label className="block text-xs text-gray-500 mb-1">Asignar a</label>
+                      <select
+                        value={sol.asignadoA?.id || ''}
+                        onChange={(e) => asignarMiembro(sol.id, e.target.value)}
+                        className="input-field w-full sm:w-auto text-sm"
+                      >
+                        <option value="">Sin asignar</option>
+                        {equipo.map((m) => (
+                          <option key={m.id} value={m.id}>{m.nombre} ({m.cargo})</option>
+                        ))}
+                      </select>
                     </div>
+                    <div className="w-full sm:w-auto">
+                      <label className="block text-xs text-gray-500 mb-1">Estado</label>
+                      <select
+                        value={sol.estado}
+                        onChange={(e) => cambiarEstado(sol.id, e.target.value)}
+                        className="input-field w-full sm:w-auto text-sm"
+                      >
+                        <option value="pendiente">Pendiente</option>
+                        <option value="en_proceso">En proceso</option>
+                        <option value="completada">Completada</option>
+                        <option value="rechazada">Rechazada</option>
+                      </select>
+                    </div>
+                    <div className="w-full sm:w-auto">
+                      <label className="block text-xs text-gray-500 mb-1">Prioridad</label>
+                      <select
+                        value={sol.prioridad}
+                        onChange={(e) => cambiarPrioridad(sol.id, e.target.value)}
+                        className="input-field w-full sm:w-auto text-sm"
+                      >
+                        <option value="alta">Alta</option>
+                        <option value="media">Media</option>
+                        <option value="baja">Baja</option>
+                      </select>
+                    </div>
+                  </div>
                   )}
                 </div>
               )}
