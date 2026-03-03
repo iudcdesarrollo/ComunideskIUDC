@@ -67,12 +67,6 @@ export default function Login() {
     setCargando(false);
   };
 
-  const seleccionarDemo = (user) => {
-    setModo('login');
-    setEmail(user.email);
-    setPassword(user.password);
-    setError('');
-  };
 
   const cambiarModo = (nuevoModo) => {
     setModo(nuevoModo);
@@ -83,11 +77,6 @@ export default function Login() {
     setCargo('');
   };
 
-  const rolesDemo = [
-    { id: 1, email: 'admin@iudc.edu.co', password: 'admin123', etiqueta: 'Super Admin' },
-    { id: 3, email: 'carlos@iudc.edu.co', password: 'equipo123', etiqueta: 'Equipo' },
-    { id: 7, email: 'maria.lopez@iudc.edu.co', password: 'docente123', etiqueta: 'Solicitante' },
-  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 flex items-center justify-center p-4">
@@ -106,6 +95,7 @@ export default function Login() {
           {/* Tabs */}
           <div className="flex rounded-xl bg-gray-100 p-1 mb-6">
             <button
+              type="button"
               onClick={() => cambiarModo('login')}
               className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${
                 modo === 'login'
@@ -117,6 +107,7 @@ export default function Login() {
               Iniciar sesión
             </button>
             <button
+              type="button"
               onClick={() => cambiarModo('registro')}
               className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${
                 modo === 'registro'
@@ -140,10 +131,11 @@ export default function Login() {
           {modo === 'login' && (
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                <label htmlFor="login-email" className="block text-sm font-medium text-gray-700 mb-1.5">
                   Correo electrónico
                 </label>
                 <input
+                  id="login-email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -154,11 +146,12 @@ export default function Login() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                <label htmlFor="login-password" className="block text-sm font-medium text-gray-700 mb-1.5">
                   Contraseña
                 </label>
                 <div className="relative">
                   <input
+                    id="login-password"
                     type={mostrarPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -184,6 +177,7 @@ export default function Login() {
                 {cargando ? (
                   <span className="flex items-center justify-center gap-2">
                     <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                      <title>Cargando</title>
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                     </svg>
@@ -211,10 +205,11 @@ export default function Login() {
           {modo === 'registro' && (
             <form onSubmit={handleRegistro} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                <label htmlFor="registro-email" className="block text-sm font-medium text-gray-700 mb-1.5">
                   Correo electrónico <span className="text-red-500">*</span>
                 </label>
                 <input
+                  id="registro-email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -226,10 +221,11 @@ export default function Login() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                <label htmlFor="registro-nombre" className="block text-sm font-medium text-gray-700 mb-1.5">
                   Nombre completo <span className="text-red-500">*</span>
                 </label>
                 <input
+                  id="registro-nombre"
                   type="text"
                   value={nombre}
                   onChange={(e) => setNombre(e.target.value)}
@@ -240,10 +236,11 @@ export default function Login() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                <label htmlFor="registro-cargo" className="block text-sm font-medium text-gray-700 mb-1.5">
                   Cargo o área <span className="text-red-500">*</span>
                 </label>
                 <input
+                  id="registro-cargo"
                   type="text"
                   value={cargo}
                   onChange={(e) => setCargo(e.target.value)}
@@ -254,11 +251,12 @@ export default function Login() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                <label htmlFor="registro-password" className="block text-sm font-medium text-gray-700 mb-1.5">
                   Contraseña <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                   <input
+                    id="registro-password"
                     type={mostrarPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -285,6 +283,7 @@ export default function Login() {
                 {cargando ? (
                   <span className="flex items-center justify-center gap-2">
                     <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                      <title>Cargando</title>
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                     </svg>
@@ -308,23 +307,6 @@ export default function Login() {
             </form>
           )}
 
-          {/* Acceso rápido demo */}
-          <div className="mt-6 pt-6 border-t border-gray-100">
-            <p className="text-xs text-gray-400 text-center mb-3 uppercase tracking-wider font-medium">
-              Acceso rápido (demostración)
-            </p>
-            <div className="flex flex-wrap gap-2 justify-center">
-              {rolesDemo.map((user) => (
-                <button
-                  key={user.id}
-                  onClick={() => seleccionarDemo(user)}
-                  className="px-3 py-1.5 bg-gray-50 hover:bg-blue-50 hover:text-blue-700 border border-gray-200 hover:border-blue-200 rounded-lg text-xs font-medium text-gray-600 transition-all duration-200"
-                >
-                  {user.etiqueta}
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
 
         <p className="text-center text-blue-200 text-xs mt-6">
