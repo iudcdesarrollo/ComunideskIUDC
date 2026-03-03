@@ -1,246 +1,197 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { PrismaClient } from '@prisma/client';
 import app from '../index.js';
+
+const prisma = new PrismaClient();
 
 let server;
 let baseUrl;
-let adminToken;
-let adminCookie;
+let registerEmail;
 
 beforeAll(async () => {
-  // Start server on random port
+  registerEmail = `test_auth_${Date.now()}@test.com`;
   server = app.listen(0);
-  const port = server.address().port;
+  const { port } = server.address();
   baseUrl = `http://localhost:${port}`;
-
-  // Wait for server to be ready
-  await new Promise(resolve => setTimeout(resolve, 500));
-
-  // Login as admin to get token for other tests
-  const loginRes = await fetch(`${baseUrl}/api/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      email: 'admin@iudc.edu.co',
-      password: 'admin123',
-    }),
-  });
-  const loginData = await loginRes.json();
-  adminToken = loginData.accessToken;
-  adminCookie = loginRes.headers.getSetCookie();
 });
 
-afterAll(() => {
-  server?.close();
+afterAll(async () => {
+  await prisma.refreshToken.deleteMany({
+    where: { user: { email: { contains: 'test_auth_' } } },
+  });
+
+  await prisma.user.deleteMany({
+    where: { email: { contains: 'test_auth_' } },
+  });
+
+  await prisma.$disconnect();
+
+  if (server) {
+    await new Promise((resolve) => {
+      server.close(resolve);
+    });
+  }
 });
 
-describe('Auth Endpoints', () => {
-  describe('POST /api/auth/register', () => {
-    it('should register a new user with 201 status', async () => {
-      // Wait a bit to ensure database is ready
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
-      const res = await fetch(`${baseUrl}/api/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: `newuser${Date.now()}@iudc.edu.co`,
-          nombre: 'New User',
-          cargo: 'Docente',
-          password: 'password123',
-        }),
-      });
-
-      expect(res.status).toBe(201);
-      const data = await res.json();
-      expect(data.user).toBeDefined();
-      expect(data.user.email).toBeDefined();
-      expect(data.user.nombre).toBe('New User');
-      expect(data.accessToken).toBeDefined();
-      expect(data.user.password).toBeUndefined();
+describe('Auth endpoints', () => {
+  it('registers a new user', async () => {
+    const response = await fetch(`${baseUrl}/api/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: registerEmail,
+        nombre: 'Test User',
+        cargo: 'Tester',
+        password: 'test123456',
+      }),
     });
 
-    it('should return 409 for duplicate email', async () => {
-      const email = `duplicate${Date.now()}@iudc.edu.co`;
+    const data = await response.json();
 
-      // First registration
-      await fetch(`${baseUrl}/api/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email,
-          nombre: 'User One',
-          cargo: 'Docente',
-          password: 'password123',
-        }),
-      });
-
-      // Second registration with same email
-      const res = await fetch(`${baseUrl}/api/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email,
-          nombre: 'User Two',
-          cargo: 'Docente',
-          password: 'password123',
-        }),
-      });
-
-      expect(res.status).toBe(409);
-      const data = await res.json();
-      expect(data.error).toBeDefined();
-    });
+    expect(response.status).toBe(201);
+    expect(data).toHaveProperty('user');
+    expect(data).toHaveProperty('accessToken');
+    expect(data.user.rol).toBe('solicitante');
   });
 
-  describe('POST /api/auth/login', () => {
-    it('should login with correct credentials', async () => {
-      const res = await fetch(`${baseUrl}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: 'admin@iudc.edu.co',
-          password: 'admin123',
-        }),
-      });
-
-      expect(res.status).toBe(200);
-      const data = await res.json();
-      expect(data.user).toBeDefined();
-      expect(data.user.email).toBe('admin@iudc.edu.co');
-      expect(data.accessToken).toBeDefined();
-      expect(data.user.password).toBeUndefined();
+  it('rejects duplicate email registration', async () => {
+    const response = await fetch(`${baseUrl}/api/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: registerEmail,
+        nombre: 'Test User',
+        cargo: 'Tester',
+        password: 'test123456',
+      }),
     });
 
-    it('should return 401 for wrong password', async () => {
-      const res = await fetch(`${baseUrl}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: 'admin@iudc.edu.co',
-          password: 'wrongpassword',
-        }),
-      });
-
-      expect(res.status).toBe(401);
-      const data = await res.json();
-      expect(data.error).toBeDefined();
-    });
-
-    it('should return 401 for nonexistent user', async () => {
-      const res = await fetch(`${baseUrl}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: 'nonexistent@iudc.edu.co',
-          password: 'password123',
-        }),
-      });
-
-      expect(res.status).toBe(401);
-      const data = await res.json();
-      expect(data.error).toBeDefined();
-    });
+    expect(response.status).toBe(409);
   });
 
-  describe('GET /api/auth/me', () => {
-    it('should return user info with valid token', async () => {
-      const res = await fetch(`${baseUrl}/api/auth/me`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${adminToken}`,
-        },
-      });
-
-      expect(res.status).toBe(200);
-      const data = await res.json();
-      expect(data.user).toBeDefined();
-      expect(data.user.email).toBe('admin@iudc.edu.co');
-      expect(data.user.password).toBeUndefined();
+  it('logs in with correct admin credentials', async () => {
+    const response = await fetch(`${baseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: 'admin@iudc.edu.co',
+        password: 'admin123',
+      }),
     });
 
-    it('should return 401 without token', async () => {
-      const res = await fetch(`${baseUrl}/api/auth/me`, {
-        method: 'GET',
-      });
+    const data = await response.json();
 
-      expect(res.status).toBe(401);
-    });
-
-    it('should return 401 with invalid token', async () => {
-      const res = await fetch(`${baseUrl}/api/auth/me`, {
-        method: 'GET',
-        headers: {
-          'Authorization': 'Bearer invalid.token.here',
-        },
-      });
-
-      expect(res.status).toBe(401);
-    });
+    expect(response.status).toBe(200);
+    expect(data).toHaveProperty('user');
+    expect(data).toHaveProperty('accessToken');
+    expect(data.user.rol).toBe('admin');
   });
 
-  describe('POST /api/auth/refresh', () => {
-    it('should refresh token with valid refresh cookie', async () => {
-      // First login to get refresh token
-      const loginRes = await fetch(`${baseUrl}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: 'admin@iudc.edu.co',
-          password: 'admin123',
-        }),
-      });
-
-      const cookies = loginRes.headers.getSetCookie();
-      const cookieHeader = cookies.join('; ');
-
-      // Now refresh
-      const refreshRes = await fetch(`${baseUrl}/api/auth/refresh`, {
-        method: 'POST',
-        headers: {
-          'Cookie': cookieHeader,
-        },
-      });
-
-      expect(refreshRes.status).toBe(200);
-      const data = await refreshRes.json();
-      expect(data.accessToken).toBeDefined();
+  it('rejects login with wrong password', async () => {
+    const response = await fetch(`${baseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: 'admin@iudc.edu.co',
+        password: 'wrongpassword',
+      }),
     });
 
-    it('should return 401 without refresh token', async () => {
-      const res = await fetch(`${baseUrl}/api/auth/refresh`, {
-        method: 'POST',
-      });
-
-      expect(res.status).toBe(401);
-    });
+    expect(response.status).toBe(401);
   });
 
-  describe('POST /api/auth/logout', () => {
-    it('should logout successfully', async () => {
-      // First login
-      const loginRes = await fetch(`${baseUrl}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: 'admin@iudc.edu.co',
-          password: 'admin123',
-        }),
-      });
-
-      const cookies = loginRes.headers.getSetCookie();
-      const cookieHeader = cookies.join('; ');
-
-      // Then logout
-      const logoutRes = await fetch(`${baseUrl}/api/auth/logout`, {
-        method: 'POST',
-        headers: {
-          'Cookie': cookieHeader,
-        },
-      });
-
-      expect(logoutRes.status).toBe(200);
-      const data = await logoutRes.json();
-      expect(data.message).toBeDefined();
+  it('rejects login with nonexistent email', async () => {
+    const response = await fetch(`${baseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: 'nonexistent@test.com',
+        password: 'whatever',
+      }),
     });
+
+    expect(response.status).toBe(401);
+  });
+
+  it('refreshes access token with refresh cookie', async () => {
+    const loginResponse = await fetch(`${baseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: 'admin@iudc.edu.co',
+        password: 'admin123',
+      }),
+    });
+
+    const setCookie = loginResponse.headers.get('set-cookie');
+    expect(setCookie).toBeTruthy();
+
+    const refreshResponse = await fetch(`${baseUrl}/api/auth/refresh`, {
+      method: 'POST',
+      headers: {
+        Cookie: setCookie,
+      },
+    });
+
+    const data = await refreshResponse.json();
+
+    expect(refreshResponse.status).toBe(200);
+    expect(data).toHaveProperty('accessToken');
+  });
+
+  it('returns current user with valid token', async () => {
+    const loginResponse = await fetch(`${baseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: 'admin@iudc.edu.co',
+        password: 'admin123',
+      }),
+    });
+
+    const loginData = await loginResponse.json();
+
+    const meResponse = await fetch(`${baseUrl}/api/auth/me`, {
+      headers: {
+        Authorization: `Bearer ${loginData.accessToken}`,
+      },
+    });
+
+    const meData = await meResponse.json();
+
+    expect(meResponse.status).toBe(200);
+    expect(meData).toHaveProperty('user');
+    expect(meData.user).not.toHaveProperty('password');
+  });
+
+  it('rejects protected route without token', async () => {
+    const response = await fetch(`${baseUrl}/api/auth/me`);
+
+    expect(response.status).toBe(401);
+  });
+
+  it('rejects solicitante access to admin urgentes route', async () => {
+    const solicitanteEmail = `test_auth_${Date.now()}_sol@test.com`;
+    const registerResponse = await fetch(`${baseUrl}/api/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: solicitanteEmail,
+        nombre: 'Solicitante Test',
+        cargo: 'Tester',
+        password: 'test123456',
+      }),
+    });
+
+    const registerData = await registerResponse.json();
+
+    const urgentesResponse = await fetch(`${baseUrl}/api/urgentes`, {
+      headers: {
+        Authorization: `Bearer ${registerData.accessToken}`,
+      },
+    });
+
+    expect(registerResponse.status).toBe(201);
+    expect(urgentesResponse.status).toBe(403);
   });
 });

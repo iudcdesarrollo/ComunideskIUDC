@@ -1,36 +1,44 @@
 # ──────────────────────────────────────────────────────────
-# ComuniDesk IUDC — Frontend (Vite React + nginx)
+# ComuniDesk IUDC — Railway Deployment (Single Service)
+# Frontend (Vite) + Backend (Express + Prisma)
 # ──────────────────────────────────────────────────────────
 
-# Stage 1: Build the React app
-FROM node:20-alpine AS builder
+# Stage 1: Build the React frontend
+FROM node:20-alpine AS frontend
+
+WORKDIR /app/frontend
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+# Stage 2: Setup backend + serve frontend
+FROM node:20-alpine AS runner
 
 WORKDIR /app
 
-# Copy dependency manifests first (better caching)
-COPY package.json package-lock.json ./
+# Install openssl (required by Prisma on Alpine)
+RUN apk add --no-cache openssl
 
-# Install dependencies
-RUN npm ci
+# Copy backend dependencies
+COPY server/package.json server/package-lock.json ./
+RUN npm ci --omit=dev
 
-# Copy source code (excluding server/ via .dockerignore)
-COPY . .
+# Copy Prisma schema and generate client
+COPY server/prisma ./prisma/
+RUN npx prisma generate
 
-# Build for production
-RUN npm run build
+# Copy backend source
+COPY server/src ./src/
 
-# Stage 2: Serve with nginx
-FROM nginx:alpine AS runner
+# Copy entrypoint
+COPY server/docker-entrypoint.sh ./
+RUN chmod +x docker-entrypoint.sh
 
-# Remove default nginx config
-RUN rm /etc/nginx/conf.d/default.conf
+# Copy built frontend from stage 1
+COPY --from=frontend /app/frontend/dist ./dist/
 
-# Copy built files from builder stage
-COPY --from=builder /app/dist /usr/share/nginx/html
+# Railway provides PORT env var
+EXPOSE ${PORT:-3001}
 
-# Copy custom nginx config
-COPY nginx/default.conf /etc/nginx/conf.d/default.conf
-
-EXPOSE 80
-
-CMD ["nginx", "-g", "daemon off;"]
+ENTRYPOINT ["./docker-entrypoint.sh"]

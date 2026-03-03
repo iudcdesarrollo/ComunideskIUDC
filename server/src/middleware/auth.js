@@ -1,10 +1,6 @@
 import jwt from 'jsonwebtoken';
 import config from '../config/index.js';
 
-/**
- * Middleware: Verify JWT access token from Authorization header
- * Attaches decoded payload to req.user: { id, email, rol }
- */
 export function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
@@ -22,10 +18,6 @@ export function authenticateToken(req, res, next) {
   }
 }
 
-/**
- * Middleware factory: Authorize specific roles
- * Usage: authorizeRoles('ADMIN', 'DIRECTOR')
- */
 export function authorizeRoles(...roles) {
   return (req, res, next) => {
     if (!req.user) {

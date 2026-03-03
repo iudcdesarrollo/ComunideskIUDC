@@ -1,3 +1,5 @@
+import path from 'path';
+import { fileURLToPath } from 'url';
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
@@ -9,8 +11,6 @@ import errorHandler from './middleware/errorHandler.js';
 import authRoutes from './routes/auth.js';
 import solicitudesRoutes from './routes/solicitudes.js';
 import tiposRoutes from './routes/tipos.js';
-import { PrismaClient } from '@prisma/client';
-import { authenticateToken, authorizeRoles } from './middleware/auth.js';
 import urgentesRoutes from './routes/urgentes.js';
 import statsRoutes from './routes/stats.js';
 import exportarRoutes from './routes/exportar.js';
@@ -54,14 +54,19 @@ app.use('/api/tipos', tiposRoutes);
 app.use('/api/users', usersRoutes);
 
 
-
-// 404 catch-all (must be AFTER all routes, BEFORE error handler)
-app.use((req, res) => {
-  res.status(404).json({ error: 'Not found' });
-});
-
-// Error handling middleware (must be last)
+// Error handling middleware for API routes
 app.use(errorHandler);
+
+// ─── Serve frontend in production ────────────────────
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const clientPath = path.join(__dirname, '../../dist');
+
+app.use(express.static(clientPath));
+
+// SPA fallback — any non-API route serves index.html
+app.get('*', (req, res) => {
+  res.sendFile(path.join(clientPath, 'index.html'));
+});
 
 // Start server
 const PORT = config.PORT || 3001;

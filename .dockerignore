@@ -1,11 +1,14 @@
 node_modules
 dist
-server
 .git
 .gitignore
 .sisyphus
 *.md
-.env*
+.env.docker
 .vscode
 .idea
 cookies.txt
+nul
+server/node_modules
+server/.env
+server/src/tests

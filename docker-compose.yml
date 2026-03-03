@@ -1,5 +1,5 @@
 ## ──────────────────────────────────────────────────────
-## ComuniDesk IUDC — Docker Compose (Production)
+## ComuniDesk IUDC — Docker Compose (Local Development)
 ## ──────────────────────────────────────────────────────
 ## Usage:
 ##   cp .env.docker.example .env.docker
@@ -26,14 +26,14 @@ services:
       timeout: 5s
       retries: 10
 
-  # ─── Backend (Express + Prisma) ───────────────────────
-  backend:
+  # ─── App (Express + React) ─────────────────────────────
+  app:
     build:
-      context: ./server
+      context: .
       dockerfile: Dockerfile
     restart: unless-stopped
     ports:
-      - "${BACKEND_PORT:-3001}:3001"
+      - "${PORT:-3001}:${PORT:-3001}"
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-comunidesk}
       JWT_SECRET: ${JWT_SECRET}
@@ -42,23 +42,12 @@ services:
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
       AWS_REGION: ${AWS_REGION:-us-east-1}
       AWS_S3_BUCKET: ${AWS_S3_BUCKET:-comunidesk-iudc-uploads}
-      PORT: 3001
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      PORT: ${PORT:-3001}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3001}
       NODE_ENV: production
     depends_on:
       db:
         condition: service_healthy
-
-  # ─── Frontend (React + nginx) ─────────────────────────
-  frontend:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    restart: unless-stopped
-    ports:
-      - "${FRONTEND_PORT:-80}:80"
-    depends_on:
-      - backend
 
 volumes:
   postgres_data:

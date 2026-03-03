@@ -7,25 +7,32 @@ export function AuthProvider({ children }) {
   const [usuario, setUsuario] = useState(null);
   const [cargando, setCargando] = useState(true);
 
+  // On mount: try to restore session via refresh token cookie
   useEffect(() => {
     const restoreSession = async () => {
       try {
+        // Try to refresh the access token using httpOnly cookie
         const refreshResponse = await fetch('/api/auth/refresh', {
           method: 'POST',
           credentials: 'include',
         });
+
         if (refreshResponse.ok) {
           const { accessToken } = await refreshResponse.json();
           setAccessToken(accessToken);
+
+          // Get user data
           const userData = await api.get('/auth/me');
           setUsuario(userData.user);
         }
       } catch (error) {
+        // No valid session — user stays null (not logged in)
         console.log('No active session');
       } finally {
         setCargando(false);
       }
     };
+
     restoreSession();
   }, []);
 
@@ -52,7 +59,11 @@ export function AuthProvider({ children }) {
   };
 
   const cerrarSesion = async () => {
-    try { await api.post('/auth/logout'); } catch (error) { /* ignore */ }
+    try {
+      await api.post('/auth/logout');
+    } catch (error) {
+      // Ignore logout errors
+    }
     clearAccessToken();
     setUsuario(null);
   };
@@ -65,7 +76,21 @@ export function AuthProvider({ children }) {
   const puedeGestionarSolicitudes = () => esAdmin() || esEquipo();
 
   return (
-    <AuthContext.Provider value={{ usuario, cargando, iniciarSesion, registrarUsuario, cerrarSesion, esAdmin, esDirector, esEquipo, esSolicitante, puedeVerUrgentes, puedeGestionarSolicitudes }}>
+    <AuthContext.Provider
+      value={{
+        usuario,
+        cargando,
+        iniciarSesion,
+        registrarUsuario,
+        cerrarSesion,
+        esAdmin,
+        esDirector,
+        esEquipo,
+        esSolicitante,
+        puedeVerUrgentes,
+        puedeGestionarSolicitudes,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -73,6 +98,8 @@ export function AuthProvider({ children }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth debe usarse dentro de AuthProvider');
+  if (!context) {
+    throw new Error('useAuth debe usarse dentro de AuthProvider');
+  }
   return context;
 }
