@@ -59,7 +59,7 @@ app.use(errorHandler);
 
 // ─── Serve frontend in production ────────────────────
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const clientPath = path.join(__dirname, '../../dist');
+const clientPath = path.join(__dirname, '../dist');
 
 app.use(express.static(clientPath));
 
