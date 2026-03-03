@@ -53,6 +53,7 @@ model User {
   reservasRadio         ReservaRadio[]
   urgentes              Urgente[]
   refreshTokens         RefreshToken[]
+  notificaciones       Notificacion[]
 }
 
 model TipoSolicitud {
@@ -122,4 +123,16 @@ model ProgramaFijo {
   programa  String
   dia       String
   hora      String
+}
+
+model Notificacion {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  tipo        String
+  titulo      String
+  mensaje     String
+  leida       Boolean  @default(false)
+  referenceId String?
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id])
 }

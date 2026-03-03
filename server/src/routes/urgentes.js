@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { PrismaClient } from '@prisma/client';
 import validate from '../middleware/validate.js';
 import { authenticateToken, authorizeRoles } from '../middleware/auth.js';
+import { crearNotificacion } from '../helpers/notificaciones.js';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -49,6 +50,18 @@ router.post('/', validate(createSchema), async (req, res, next) => {
         solicitante: { select: { id: true, nombre: true, cargo: true } },
       },
     });
+    // Notify all EQUIPO users about new urgente
+    const equipoUsers = await prisma.user.findMany({ where: { rol: 'EQUIPO' } });
+    for (const user of equipoUsers) {
+      await crearNotificacion({
+        userId: user.id,
+        tipo: 'urgente_nuevo',
+        titulo: 'Canal urgente',
+        mensaje: `Nuevo canal urgente: "${urgente.titulo}"`,
+        referenceId: String(urgente.id),
+      });
+    }
+
     res.status(201).json(urgente);
   } catch (error) {
     next(error);

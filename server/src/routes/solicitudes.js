@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { PrismaClient } from '@prisma/client';
 import validate from '../middleware/validate.js';
 import { authenticateToken, authorizeRoles } from '../middleware/auth.js';
+import { crearNotificacion } from '../helpers/notificaciones.js';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -195,6 +196,14 @@ router.patch('/:id/estado', authenticateToken, authorizeRoles('ADMIN', 'EQUIPO')
       },
     });
 
+    await crearNotificacion({
+      userId: solicitud.solicitanteId,
+      tipo: 'solicitud_estado',
+      titulo: 'Estado actualizado',
+      mensaje: `Tu solicitud "${updated.titulo}" cambió a ${req.body.estado}`,
+      referenceId: updated.id,
+    });
+
     res.json(updated);
   } catch (error) {
     next(error);
@@ -258,6 +267,14 @@ router.patch('/:id/asignar', authenticateToken, authorizeRoles('ADMIN'), validat
       },
     });
 
+    await crearNotificacion({
+      userId: req.body.asignadoAId,
+      tipo: 'solicitud_asignada',
+      titulo: 'Solicitud asignada',
+      mensaje: `Se te asignó la solicitud "${updated.titulo}"`,
+      referenceId: updated.id,
+    });
+
     res.json(updated);
   } catch (error) {
     next(error);
@@ -287,6 +304,14 @@ router.post('/:id/tomar', authenticateToken, authorizeRoles('EQUIPO'), async (re
         asignadoA: { select: { id: true, nombre: true } },
         tipo: { select: { id: true, nombre: true, color: true, icono: true } },
       },
+    });
+
+    await crearNotificacion({
+      userId: solicitud.solicitanteId,
+      tipo: 'solicitud_asignada',
+      titulo: 'Solicitud en proceso',
+      mensaje: `Tu solicitud "${updated.titulo}" fue tomada por ${updated.asignadoA.nombre}`,
+      referenceId: updated.id,
     });
 
     res.json(updated);

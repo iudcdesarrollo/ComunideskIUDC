@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { PrismaClient } from '@prisma/client';
 import validate from '../middleware/validate.js';
 import { authenticateToken, authorizeRoles } from '../middleware/auth.js';
+import { crearNotificacion } from '../helpers/notificaciones.js';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -171,6 +172,14 @@ router.patch(
         },
       });
 
+      await crearNotificacion({
+        userId: reserva.solicitanteId,
+        tipo: 'radio_aprobada',
+        titulo: 'Reserva aprobada',
+        mensaje: `Tu reserva de radio para ${reserva.dia} a las ${reserva.hora} fue aprobada`,
+        referenceId: String(reserva.id),
+      });
+
       res.json(reserva);
     } catch (error) {
       if (error.code === 'P2025') {
@@ -191,6 +200,17 @@ router.delete(
   async (req, res, next) => {
     try {
       const id = parseInt(req.params.id, 10);
+
+      const reserva = await prisma.reservaRadio.findUnique({ where: { id } });
+      if (reserva) {
+        await crearNotificacion({
+          userId: reserva.solicitanteId,
+          tipo: 'radio_rechazada',
+          titulo: 'Reserva rechazada',
+          mensaje: `Tu reserva de radio para ${reserva.dia} a las ${reserva.hora} fue rechazada`,
+          referenceId: String(reserva.id),
+        });
+      }
 
       await prisma.reservaRadio.delete({ where: { id } });
 

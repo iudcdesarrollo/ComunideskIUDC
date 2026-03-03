@@ -16,6 +16,7 @@ import statsRoutes from './routes/stats.js';
 import exportarRoutes from './routes/exportar.js';
 import radioRoutes from './routes/radio.js';
 import usersRoutes from './routes/users.js';
+import notificacionesRoutes from './routes/notificaciones.js';
 
 const app = express();
 
@@ -52,6 +53,7 @@ app.use('/api/radio', radioRoutes);
 app.use('/api/solicitudes', solicitudesRoutes);
 app.use('/api/tipos', tiposRoutes);
 app.use('/api/users', usersRoutes);
+app.use('/api/notificaciones', notificacionesRoutes);
 
 
 // Error handling middleware for API routes
