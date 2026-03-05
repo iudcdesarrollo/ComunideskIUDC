@@ -106,52 +106,71 @@ const PROGRAMAS_FIJOS = [
 ];
 
 async function main() {
-  console.log('🌱 Starting clean production seed...');
+  console.log('🌱 Starting production seed...');
 
-  // Clear everything
-  await prisma.refreshToken.deleteMany();
-  await prisma.urgente.deleteMany();
-  await prisma.reservaRadio.deleteMany();
-  await prisma.solicitud.deleteMany();
-  await prisma.tipoSolicitud.deleteMany();
-  await prisma.programaFijo.deleteMany();
-  await prisma.user.deleteMany();
-  console.log('✓ Cleared existing data');
+  // ─── Check current database state ─────────────────────
+  const existingUsers = await prisma.user.count();
+  const existingTipos = await prisma.tipoSolicitud.count();
+  const existingProgramas = await prisma.programaFijo.count();
 
-  // Create 4 production users
-  for (const u of USUARIOS) {
-    const hashedPassword = await bcrypt.hash(u.password, SALT_ROUNDS);
-    await prisma.user.create({
-      data: {
-        nombre: u.nombre,
-        email: u.email,
-        password: hashedPassword,
-        rol: u.rol,
-        cargo: u.cargo,
-      },
-    });
+  // ─── Full seed: only when database is completely empty ─
+  if (existingUsers === 0) {
+    console.log('📦 Empty database detected. Running full seed...');
+
+    // Clear everything in correct FK order
+    await prisma.notificacion.deleteMany();
+    await prisma.refreshToken.deleteMany();
+    await prisma.urgente.deleteMany();
+    await prisma.reservaRadio.deleteMany();
+    await prisma.solicitud.deleteMany();
+    await prisma.tipoSolicitud.deleteMany();
+    await prisma.programaFijo.deleteMany();
+    await prisma.user.deleteMany();
+
+    // Create 4 production users
+    for (const u of USUARIOS) {
+      const hashedPassword = await bcrypt.hash(u.password, SALT_ROUNDS);
+      await prisma.user.create({
+        data: {
+          nombre: u.nombre,
+          email: u.email,
+          password: hashedPassword,
+          rol: u.rol,
+          cargo: u.cargo,
+        },
+      });
+    }
+    console.log('✓ Created 4 users (passwords hashed with bcrypt)');
+  } else {
+    console.log('✅ Users already exist (' + existingUsers + ' found). Skipping user creation.');
   }
-  console.log('✓ Created 4 users (passwords hashed with bcrypt)');
 
-  // Create tipos de solicitud
-  for (const tipo of TIPOS_SOLICITUD) {
-    await prisma.tipoSolicitud.create({ data: tipo });
+  // ─── Ensure tipos de solicitud exist (repair if missing) ─
+  if (existingTipos === 0) {
+    console.log('⚠️  No tipos de solicitud found. Recreating...');
+    for (const tipo of TIPOS_SOLICITUD) {
+      await prisma.tipoSolicitud.upsert({
+        where: { id: tipo.id },
+        update: {},
+        create: tipo,
+      });
+    }
+    console.log('✓ Created 6 tipos de solicitud');
+  } else {
+    console.log('✅ Tipos de solicitud already exist (' + existingTipos + ' found).');
   }
-  console.log('✓ Created 6 tipos de solicitud');
 
-  // Create programas fijos
-  for (const prog of PROGRAMAS_FIJOS) {
-    await prisma.programaFijo.create({ data: prog });
+  // ─── Ensure programas fijos exist (repair if missing) ───
+  if (existingProgramas === 0) {
+    console.log('⚠️  No programas fijos found. Recreating...');
+    for (const prog of PROGRAMAS_FIJOS) {
+      await prisma.programaFijo.create({ data: prog });
+    }
+    console.log('✓ Created 4 programas fijos');
+  } else {
+    console.log('✅ Programas fijos already exist (' + existingProgramas + ' found).');
   }
-  console.log('✓ Created 4 programas fijos');
 
-  console.log('\n📊 Seed Summary:');
-  console.log('   Users: 4');
-  console.log('   Tipos: 6');
-  console.log('   Programas Fijos: 4');
-  console.log('   Solicitudes: 0 (clean start)');
-  console.log('   Reservas Radio: 0 (clean start)');
-  console.log('   Urgentes: 0 (clean start)');
   console.log('\n✅ Seed completed successfully!');
 }
 
