@@ -122,7 +122,8 @@ export default function ParrillaRadio() {
       try {
         const semanaKey = semanaActual.toISOString().split('T')[0];
         const res = await api.get(`/radio/reservas?semana=${semanaKey}`);
-        setReservas(Array.isArray(res) ? res : res.reservas || []);
+        const data = Array.isArray(res) ? res : res.reservas || [];
+        setReservas(data.map(r => ({ ...r, estado: r.estado?.toLowerCase() })));
       } catch (error) {
         console.error('Error fetching reservas:', error);
       }

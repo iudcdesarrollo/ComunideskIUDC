@@ -46,13 +46,14 @@ export default function MisSolicitudes() {
 
   const normalizeSol = (sol) => ({
     ...sol,
+    estado: (sol.estado || '').toLowerCase(),
+    prioridad: (sol.prioridad || 'media').toLowerCase(),
     tipo: sol.tipo || sol.tipoId,
     tipoNombre: sol.tipoNombre || sol.tipoSolicitud?.nombre || '',
     fechaCreacion: sol.fechaCreacion || (sol.createdAt ? new Date(sol.createdAt).toISOString().split('T')[0] : ''),
     tiempoEntrega: sol.tiempoEntrega || sol.tipoSolicitud?.tiempoEntrega || '',
     solicitante: sol.solicitante || { id: sol.solicitanteId, nombre: 'Desconocido', cargo: '' },
     asignadoA: sol.asignadoA || null,
-    prioridad: sol.prioridad || 'media',
   });
 
   useEffect(() => {
@@ -99,7 +100,7 @@ export default function MisSolicitudes() {
 
   const cambiarEstado = async (id, nuevoEstado) => {
     try {
-      await api.patch(`/solicitudes/${id}/estado`, { estado: nuevoEstado });
+      await api.patch(`/solicitudes/${id}/estado`, { estado: nuevoEstado.toUpperCase() });
       setSolicitudes((prev) =>
         prev.map((s) => s.id === id ? { ...s, estado: nuevoEstado } : s)
       );

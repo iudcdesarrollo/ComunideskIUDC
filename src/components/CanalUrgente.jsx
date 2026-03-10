@@ -40,7 +40,8 @@ export default function CanalUrgente() {
     const fetchUrgentes = async () => {
       try {
         const res = await api.get('/urgentes');
-        setUrgentes(Array.isArray(res) ? res : []);
+        const data = Array.isArray(res) ? res : res.data || [];
+        setUrgentes(data.map(u => ({ ...u, estado: (u.estado || '').toLowerCase() })));
       } catch (error) {
         console.error('Error fetching urgentes:', error);
       } finally {
@@ -71,7 +72,7 @@ export default function CanalUrgente() {
 
   const cambiarEstado = async (id, nuevoEstado) => {
     try {
-      await api.patch(`/urgentes/${id}/estado`, { estado: nuevoEstado });
+      await api.patch(`/urgentes/${id}/estado`, { estado: nuevoEstado.toUpperCase() });
       setUrgentes((prev) =>
         prev.map((u) => u.id === id ? { ...u, estado: nuevoEstado } : u)
       );
