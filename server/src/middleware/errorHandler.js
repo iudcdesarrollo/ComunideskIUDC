@@ -1,8 +1,7 @@
 const errorHandler = (err, req, res, next) => {
-  // Log error in development
-  if (process.env.NODE_ENV === 'development') {
-    console.error('Error:', err);
-  }
+  // Always log errors so they appear in Railway logs
+  console.error(`[ERROR] ${req.method} ${req.path} →`, err.message);
+  if (err.stack) console.error(err.stack);
 
   // Determine status code
   const status = err.status || err.statusCode || 500;

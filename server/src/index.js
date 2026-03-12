@@ -18,6 +18,15 @@ import radioRoutes from './routes/radio.js';
 import usersRoutes from './routes/users.js';
 import notificacionesRoutes from './routes/notificaciones.js';
 
+// Check required env vars at startup
+const REQUIRED_ENV = ['DATABASE_URL', 'JWT_SECRET', 'JWT_REFRESH_SECRET'];
+const missing = REQUIRED_ENV.filter(k => !process.env[k]);
+if (missing.length > 0) {
+  console.error('[STARTUP ERROR] Missing required env vars:', missing.join(', '));
+  process.exit(1);
+}
+console.log('[STARTUP] All required env vars present ✓');
+
 const app = express();
 
 // Security middleware
