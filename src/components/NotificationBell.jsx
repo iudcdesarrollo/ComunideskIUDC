@@ -1,13 +1,36 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Bell, Check, CheckCheck, Trash2, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Bell, Check, CheckCheck, Trash2, X, Brain, Radio as RadioIcon, AlertTriangle, FileText } from 'lucide-react';
 import api from '../services/api.js';
 
+const TIPO_RUTA = {
+  solicitud_estado:   (id) => `/mis-solicitudes?expand=${id}`,
+  solicitud_asignada: (id) => `/mis-solicitudes?expand=${id}`,
+  radio_aprobada:     ()   => `/radio`,
+  radio_rechazada:    ()   => `/radio`,
+  urgente_nuevo:      ()   => `/urgente`,
+  valle_ia_aprobada:  (id) => `/valle-ia?reserva=${id}`,
+  valle_ia_rechazada: (id) => `/valle-ia?reserva=${id}`,
+};
+
 const TIPO_COLORES = {
-  solicitud_estado: 'bg-blue-500',
+  solicitud_estado:   'bg-blue-500',
   solicitud_asignada: 'bg-green-500',
-  radio_aprobada: 'bg-emerald-500',
-  radio_rechazada: 'bg-red-500',
-  urgente_nuevo: 'bg-amber-500',
+  radio_aprobada:     'bg-emerald-500',
+  radio_rechazada:    'bg-red-500',
+  urgente_nuevo:      'bg-amber-500',
+  valle_ia_aprobada:  'bg-purple-600',
+  valle_ia_rechazada: 'bg-rose-500',
+};
+
+const TIPO_ICONOS = {
+  valle_ia_aprobada:  Brain,
+  valle_ia_rechazada: Brain,
+  radio_aprobada:     RadioIcon,
+  radio_rechazada:    RadioIcon,
+  urgente_nuevo:      AlertTriangle,
+  solicitud_estado:   FileText,
+  solicitud_asignada: FileText,
 };
 
 function tiempoRelativo(fecha) {
@@ -25,20 +48,40 @@ function tiempoRelativo(fecha) {
 }
 
 export default function NotificationBell() {
+  const navigate = useNavigate();
   const [abierto, setAbierto] = useState(false);
   const [notificaciones, setNotificaciones] = useState([]);
   const [noLeidas, setNoLeidas] = useState(0);
   const [cargando, setCargando] = useState(false);
+  const [toast, setToast] = useState(null); // { titulo, mensaje, tipo }
+  const prevNoLeidas = useRef(null);
+  const toastTimer = useRef(null);
   const ref = useRef(null);
+
+  const mostrarToast = useCallback((notif) => {
+    setToast(notif);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 6000);
+  }, []);
 
   const fetchNoLeidas = useCallback(async () => {
     try {
       const data = await api.get('/notificaciones/no-leidas/count');
-      setNoLeidas(data.count);
+      const count = data.count;
+      // Si aumentó el contador, buscar la notificación más nueva y mostrar toast
+      if (prevNoLeidas.current !== null && count > prevNoLeidas.current) {
+        try {
+          const res = await api.get('/notificaciones');
+          const nuevas = (res.data || []).filter((n) => !n.leida);
+          if (nuevas.length > 0) mostrarToast(nuevas[0]);
+        } catch { /* silent */ }
+      }
+      prevNoLeidas.current = count;
+      setNoLeidas(count);
     } catch {
       // Silently fail — don't break UI
     }
-  }, []);
+  }, [mostrarToast]);
 
   const fetchNotificaciones = useCallback(async () => {
     setCargando(true);
@@ -182,7 +225,11 @@ export default function NotificationBell() {
                   {/* Content */}
                   <div
                     className="flex-1 min-w-0 cursor-pointer"
-                    onClick={() => !notif.leida && marcarLeida(notif.id)}
+                    onClick={() => {
+                      if (!notif.leida) marcarLeida(notif.id);
+                      const rutaFn = TIPO_RUTA[notif.tipo];
+                      if (rutaFn) { setAbierto(false); navigate(rutaFn(notif.referenceId)); }
+                    }}
                   >
                     <p className={`text-sm ${!notif.leida ? 'font-semibold text-gray-900' : 'text-gray-700'}`}>
                       {notif.titulo}
@@ -220,6 +267,29 @@ export default function NotificationBell() {
           </div>
         </div>
       )}
+
+      {/* Toast flotante — esquina inferior derecha */}
+      {toast && (() => {
+        const ToastIcon = TIPO_ICONOS[toast.tipo] || Bell;
+        const color = TIPO_COLORES[toast.tipo] || 'bg-gray-700';
+        return (
+          <div className={`fixed bottom-6 right-6 z-[999] flex items-start gap-3 max-w-sm w-full bg-white rounded-2xl shadow-2xl border border-gray-100 p-4 animate-slide-up`}>
+            <div className={`w-9 h-9 ${color} rounded-xl flex items-center justify-center shrink-0`}>
+              <ToastIcon className="w-4 h-4 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-gray-900 leading-tight">{toast.titulo}</p>
+              <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{toast.mensaje}</p>
+            </div>
+            <button
+              onClick={() => { setToast(null); if (toastTimer.current) clearTimeout(toastTimer.current); }}
+              className="p-1 hover:bg-gray-100 rounded-lg transition-colors shrink-0"
+            >
+              <X className="w-4 h-4 text-gray-400" />
+            </button>
+          </div>
+        );
+      })()}
     </div>
   );
 }

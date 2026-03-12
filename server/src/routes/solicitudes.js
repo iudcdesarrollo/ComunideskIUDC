@@ -171,7 +171,7 @@ router.post('/', authenticateToken, validate(createSolicitudSchema), async (req,
 
 // ─── PATCH /api/solicitudes/:id/estado ────────────────────
 
-router.patch('/:id/estado', authenticateToken, authorizeRoles('ADMIN', 'EQUIPO'), validate(updateEstadoSchema), async (req, res, next) => {
+router.patch('/:id/estado', authenticateToken, authorizeRoles('ADMIN', 'DIRECTOR', 'EQUIPO'), validate(updateEstadoSchema), async (req, res, next) => {
   try {
     const solicitud = await prisma.solicitud.findUnique({
       where: { id: req.params.id },
@@ -212,7 +212,7 @@ router.patch('/:id/estado', authenticateToken, authorizeRoles('ADMIN', 'EQUIPO')
 
 // ─── PATCH /api/solicitudes/:id/prioridad ─────────────────
 
-router.patch('/:id/prioridad', authenticateToken, authorizeRoles('ADMIN'), validate(updatePrioridadSchema), async (req, res, next) => {
+router.patch('/:id/prioridad', authenticateToken, authorizeRoles('ADMIN', 'DIRECTOR'), validate(updatePrioridadSchema), async (req, res, next) => {
   try {
     const solicitud = await prisma.solicitud.findUnique({
       where: { id: req.params.id },
@@ -240,7 +240,7 @@ router.patch('/:id/prioridad', authenticateToken, authorizeRoles('ADMIN'), valid
 
 // ─── PATCH /api/solicitudes/:id/asignar ───────────────────
 
-router.patch('/:id/asignar', authenticateToken, authorizeRoles('ADMIN'), validate(asignarSchema), async (req, res, next) => {
+router.patch('/:id/asignar', authenticateToken, authorizeRoles('ADMIN', 'DIRECTOR'), validate(asignarSchema), async (req, res, next) => {
   try {
     const solicitud = await prisma.solicitud.findUnique({
       where: { id: req.params.id },
@@ -283,7 +283,7 @@ router.patch('/:id/asignar', authenticateToken, authorizeRoles('ADMIN'), validat
 
 // ─── POST /api/solicitudes/:id/tomar ──────────────────────
 
-router.post('/:id/tomar', authenticateToken, authorizeRoles('EQUIPO'), async (req, res, next) => {
+router.post('/:id/tomar', authenticateToken, authorizeRoles('EQUIPO', 'DIRECTOR'), async (req, res, next) => {
   try {
     const solicitud = await prisma.solicitud.findUnique({
       where: { id: req.params.id },

@@ -17,6 +17,7 @@ import exportarRoutes from './routes/exportar.js';
 import radioRoutes from './routes/radio.js';
 import usersRoutes from './routes/users.js';
 import notificacionesRoutes from './routes/notificaciones.js';
+import valleIaRoutes from './routes/valleIa.js';
 
 // Check required env vars at startup
 const REQUIRED_ENV = ['DATABASE_URL', 'JWT_SECRET', 'JWT_REFRESH_SECRET'];
@@ -63,6 +64,7 @@ app.use('/api/solicitudes', solicitudesRoutes);
 app.use('/api/tipos', tiposRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/notificaciones', notificacionesRoutes);
+app.use('/api/valle-ia', valleIaRoutes);
 
 
 // Error handling middleware for API routes

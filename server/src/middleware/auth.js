@@ -23,7 +23,7 @@ export function authorizeRoles(...roles) {
     if (!req.user) {
       return res.status(401).json({ error: 'No autenticado' });
     }
-    if (!roles.includes(req.user.rol)) {
+    if (!roles.includes((req.user.rol || '').toUpperCase())) {
       return res.status(403).json({ error: 'No tienes permisos para esta acción' });
     }
     next();

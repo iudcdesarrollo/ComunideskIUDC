@@ -149,8 +149,8 @@ export default function NuevaSolicitud() {
   if (enviado) {
     const tipo = tipos.find((t) => t.id === tipoSeleccionado);
     return (
-      <div className="max-w-lg mx-auto mt-12 text-center">
-        <div className="card p-10">
+      <div className="max-w-lg mx-auto mt-8 sm:mt-12 text-center px-4 sm:px-0">
+        <div className="card p-6 sm:p-10">
           <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-5">
             <CheckCircle2 className="w-8 h-8 text-emerald-600" />
           </div>
@@ -168,7 +168,7 @@ export default function NuevaSolicitud() {
             <span className="font-medium">Tiempo estimado: {tipo?.tiempoEntrega}</span>
           </div>
 
-          <div className="flex gap-3 justify-center">
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <button onClick={() => navigate('/mis-solicitudes')} className="btn-primary">
               Ver mis solicitudes
             </button>

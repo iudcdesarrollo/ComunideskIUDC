@@ -29,7 +29,7 @@ const estadoConfig = {
 };
 
 export default function CanalUrgente() {
-  const { usuario, esAdmin } = useAuth();
+  const { usuario, esAdmin, esDirector } = useAuth();
   const [urgentes, setUrgentes] = useState([]);
   const [titulo, setTitulo] = useState('');
   const [descripcion, setDescripcion] = useState('');
@@ -44,6 +44,10 @@ export default function CanalUrgente() {
         setUrgentes(data.map(u => ({ ...u, estado: (u.estado || '').toLowerCase() })));
       } catch (error) {
         console.error('Error fetching urgentes:', error);
+        // Show fetch error if it's a 403 (permissions issue)
+        if (error.status === 403) {
+          alert('No tienes permisos para ver el canal urgente.');
+        }
       } finally {
         setLoading(false);
       }
@@ -60,7 +64,7 @@ export default function CanalUrgente() {
         titulo: titulo.trim(),
         descripcion: descripcion.trim(),
       });
-      setUrgentes((prev) => [nuevo, ...prev]);
+      setUrgentes((prev) => [{ ...nuevo, estado: (nuevo.estado || '').toLowerCase() }, ...prev]);
       setTitulo('');
       setDescripcion('');
       setEnviado(true);
@@ -186,7 +190,7 @@ export default function CanalUrgente() {
                       </div>
                     </div>
 
-                    {esAdmin() && (
+                    {(esAdmin() || esDirector()) && (
                       <div className="shrink-0">
                         <select
                           value={urg.estado}

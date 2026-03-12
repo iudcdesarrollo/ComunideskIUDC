@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import {
@@ -12,6 +13,8 @@ import {
   UserCheck,
   Clock,
   MessageSquare,
+  CheckCircle2,
+  X,
 } from 'lucide-react';
 
 const estadoLabels = {
@@ -35,14 +38,16 @@ const prioridadBadge = {
 };
 
 export default function MisSolicitudes() {
-  const { usuario, puedeGestionarSolicitudes, esSolicitante, esAdmin } = useAuth();
+  const { usuario, puedeGestionarSolicitudes, esSolicitante, esAdmin, esDirector } = useAuth();
+  const [searchParams] = useSearchParams();
   const [busqueda, setBusqueda] = useState('');
-  const [filtroEstado, setFiltroEstado] = useState('todos');
+  const [filtroEstado, setFiltroEstado] = useState(searchParams.get('estado') || 'todos');
   const [filtroTipo, setFiltroTipo] = useState('todos');
-  const [expandida, setExpandida] = useState(null);
+  const [expandida, setExpandida] = useState(searchParams.get('expand') || null);
   const [solicitudes, setSolicitudes] = useState([]);
   const [equipo, setEquipo] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [bannerCerrado, setBannerCerrado] = useState(false);
 
   const normalizeSol = (sol) => ({
     ...sol,
@@ -55,6 +60,16 @@ export default function MisSolicitudes() {
     solicitante: sol.solicitante || { id: sol.solicitanteId, nombre: 'Desconocido', cargo: '' },
     asignadoA: sol.asignadoA || null,
   });
+
+  // Auto-scroll to expanded solicitud when coming from a notification
+  useEffect(() => {
+    const expandId = searchParams.get('expand');
+    if (expandId) {
+      setTimeout(() => {
+        document.getElementById(`sol-${expandId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 400);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -111,7 +126,7 @@ export default function MisSolicitudes() {
 
   const cambiarPrioridad = async (id, nuevaPrioridad) => {
     try {
-      await api.patch(`/solicitudes/${id}/prioridad`, { prioridad: nuevaPrioridad });
+      await api.patch(`/solicitudes/${id}/prioridad`, { prioridad: nuevaPrioridad.toUpperCase() });
       setSolicitudes((prev) =>
         prev.map((s) => s.id === id ? { ...s, prioridad: nuevaPrioridad } : s)
       );
@@ -129,7 +144,9 @@ export default function MisSolicitudes() {
         );
       } else {
         await api.patch(`/solicitudes/${id}/asignar`, { asignadoAId: parseInt(miembroId) });
-        const miembro = equipo.find((m) => m.id === parseInt(miembroId));
+        const idNum = parseInt(miembroId);
+        const miembro = equipo.find((m) => m.id === idNum)
+          || (usuario && usuario.id === idNum ? { id: usuario.id, nombre: usuario.nombre } : null);
         setSolicitudes((prev) =>
           prev.map((s) =>
             s.id === id
@@ -193,10 +210,46 @@ export default function MisSolicitudes() {
         </p>
       </div>
 
+      {/* Banner de solicitudes completadas — solo SOLICITANTE */}
+      {esSolicitante() && !bannerCerrado && (() => {
+        const completadas = solicitudes.filter((s) => s.estado === 'completada');
+        if (completadas.length === 0) return null;
+        return (
+          <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-start gap-4">
+            <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center shrink-0">
+              <CheckCircle2 className="w-5 h-5 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-emerald-800">
+                {completadas.length === 1
+                  ? '¡Tu solicitud fue completada!'
+                  : `¡${completadas.length} solicitudes fueron completadas!`}
+              </p>
+              <ul className="mt-1 space-y-0.5">
+                {completadas.slice(0, 3).map((s) => (
+                  <li key={s.id} className="text-sm text-emerald-700 truncate">
+                    · {s.titulo} <span className="text-emerald-500 text-xs">({s.id})</span>
+                  </li>
+                ))}
+                {completadas.length > 3 && (
+                  <li className="text-xs text-emerald-500">y {completadas.length - 3} más...</li>
+                )}
+              </ul>
+            </div>
+            <button
+              onClick={() => setBannerCerrado(true)}
+              className="text-emerald-400 hover:text-emerald-600 transition-colors shrink-0"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        );
+      })()}
+
       {/* Barra de filtros */}
-      <div className="card">
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
+      <div className="card p-3 sm:p-5">
+        <div className="flex flex-col gap-3">
+          <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
@@ -206,11 +259,11 @@ export default function MisSolicitudes() {
               className="input-field pl-10 w-full"
             />
           </div>
-          <div className="grid grid-cols-1 sm:flex gap-3">
+          <div className="grid grid-cols-2 sm:flex gap-2 sm:gap-3">
             <select
               value={filtroEstado}
               onChange={(e) => setFiltroEstado(e.target.value)}
-              className="input-field w-full sm:w-auto"
+              className="input-field text-sm"
             >
               <option value="todos">Todos los estados</option>
               <option value="pendiente">Pendiente</option>
@@ -221,7 +274,7 @@ export default function MisSolicitudes() {
             <select
               value={filtroTipo}
               onChange={(e) => setFiltroTipo(e.target.value)}
-              className="input-field w-full sm:w-auto"
+              className="input-field text-sm"
             >
               <option value="todos">Todos los tipos</option>
               <option value="registro_control">Registro y Control</option>
@@ -246,46 +299,40 @@ export default function MisSolicitudes() {
           </div>
         ) : (
           solicitudesFiltradas.map((sol) => (
-            <div key={sol.id} className="card overflow-hidden">
+            <div key={sol.id} id={`sol-${sol.id}`} className={`card overflow-hidden ${sol.estado === 'completada' ? 'border-l-4 border-l-emerald-400' : sol.estado === 'rechazada' ? 'border-l-4 border-l-red-300' : ''} ${expandida === sol.id ? 'ring-2 ring-blue-300' : ''}`}>
               {/* Fila principal */}
               <div
-                className="flex items-center gap-4 cursor-pointer"
+                className="flex items-start sm:items-center gap-3 sm:gap-4 cursor-pointer"
                 onClick={() => setExpandida(expandida === sol.id ? null : sol.id)}
               >
-                <div className="hidden sm:flex w-12 h-12 bg-gray-100 rounded-xl items-center justify-center">
+                <div className="hidden sm:flex w-12 h-12 bg-gray-100 rounded-xl items-center justify-center shrink-0">
                   <span className="text-xs font-bold text-gray-500">{sol.id.split('-')[1]}</span>
                 </div>
 
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-semibold text-gray-900 text-sm">{sol.titulo}</p>
-                    <span className="text-xs text-gray-400">{sol.id}</span>
+                  <div className="flex items-start sm:items-center gap-2 flex-wrap">
+                    <p className="font-semibold text-gray-900 text-sm leading-tight">{sol.titulo}</p>
+                    <span className="text-xs text-gray-400 font-mono">{sol.id}</span>
                   </div>
-                  <div className="flex items-center gap-3 mt-1 text-xs text-gray-500 flex-wrap">
-                    <span className="flex items-center gap-1">
-                      <Tag className="w-3 h-3" />
+                  <div className="flex items-center gap-2 sm:gap-3 mt-1 text-xs text-gray-500 flex-wrap">
+                    <span className="flex items-center gap-1 truncate max-w-[120px] sm:max-w-none">
+                      <Tag className="w-3 h-3 shrink-0" />
                       {sol.tipoNombre}
                     </span>
                     <span className="flex items-center gap-1">
-                      <Calendar className="w-3 h-3" />
+                      <Calendar className="w-3 h-3 shrink-0" />
                       {sol.fechaCreacion}
                     </span>
                     {!esSolicitante() && (
-                      <span className="flex items-center gap-1">
-                        <User className="w-3 h-3" />
+                      <span className="hidden sm:flex items-center gap-1">
+                        <User className="w-3 h-3 shrink-0" />
                         {sol.solicitante.nombre}
-                      </span>
-                    )}
-                    {sol.tiempoEntrega && (
-                      <span className="flex items-center gap-1 text-gray-400">
-                        <Clock className="w-3 h-3" />
-                        {sol.tiempoEntrega}
                       </span>
                     )}
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 shrink-0">
+                <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1.5 sm:gap-3 shrink-0">
                   {!esSolicitante() && (
                     <span className={`badge ${prioridadBadge[sol.prioridad]} hidden sm:inline-flex`}>
                       {sol.prioridad === 'alta' ? 'Alta' : sol.prioridad === 'media' ? 'Media' : 'Baja'}
@@ -395,8 +442,17 @@ export default function MisSolicitudes() {
                   )}
 
                   {/* VISTA ADMIN: control total */}
-                  {esAdmin() && (
+                  {(esAdmin() || esDirector()) && (
                   <div className="flex flex-col sm:flex-row gap-3 pt-3 border-t border-gray-100">
+                    {esDirector() && !sol.asignadoA && (
+                      <button
+                        onClick={() => autoAsignar(sol.id)}
+                        className="bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 px-4 rounded-xl flex items-center gap-2 transition-colors self-end"
+                      >
+                        <UserCheck className="w-4 h-4" />
+                        Tomar solicitud
+                      </button>
+                    )}
                     <div className="w-full sm:w-auto">
                       <label className="block text-xs text-gray-500 mb-1">Asignar a</label>
                       <select
@@ -405,6 +461,9 @@ export default function MisSolicitudes() {
                         className="input-field w-full sm:w-auto text-sm"
                       >
                         <option value="">Sin asignar</option>
+                        {esDirector() && (
+                          <option value={usuario.id}>{usuario.nombre} (Yo)</option>
+                        )}
                         {equipo.map((m) => (
                           <option key={m.id} value={m.id}>{m.nombre} ({m.cargo})</option>
                         ))}

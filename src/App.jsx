@@ -10,6 +10,7 @@ import CanalUrgente from './components/CanalUrgente';
 import Seguimiento from './components/Seguimiento';
 import Exportar from './components/Exportar';
 import GestionUsuarios from './components/GestionUsuarios';
+import ValleIA from './components/ValleIA';
 
 function RutaProtegida({ children, roles }) {
   const { usuario, cargando } = useAuth();
@@ -73,6 +74,7 @@ function AppRoutes() {
         <Route path="nueva-solicitud" element={<NuevaSolicitud />} />
         <Route path="mis-solicitudes" element={<MisSolicitudes />} />
         <Route path="radio" element={<ParrillaRadio />} />
+        <Route path="valle-ia" element={<ValleIA />} />
         <Route
           path="urgente"
           element={
@@ -84,7 +86,7 @@ function AppRoutes() {
         <Route
           path="seguimiento"
           element={
-            <RutaProtegida roles={['admin', 'equipo']}>
+            <RutaProtegida roles={['admin', 'director', 'equipo']}>
               <Seguimiento />
             </RutaProtegida>
           }
@@ -92,7 +94,7 @@ function AppRoutes() {
         <Route
           path="exportar"
           element={
-            <RutaProtegida roles={['admin']}>
+            <RutaProtegida roles={['admin', 'director']}>
               <Exportar />
             </RutaProtegida>
           }
@@ -100,7 +102,7 @@ function AppRoutes() {
         <Route
           path="usuarios"
           element={
-            <RutaProtegida roles={['admin']}>
+            <RutaProtegida roles={['admin', 'director']}>
               <GestionUsuarios />
             </RutaProtegida>
           }

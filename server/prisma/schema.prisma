@@ -40,20 +40,21 @@ enum EstadoUrgente {
 }
 
 model User {
-  id                    Int            @id @default(autoincrement())
+  id                    Int              @id @default(autoincrement())
   nombre                String
-  email                 String         @unique
+  email                 String           @unique
   password              String
   rol                   Rol
   cargo                 String
-  createdAt             DateTime       @default(now())
-  updatedAt             DateTime       @updatedAt
-  solicitudesCreadas    Solicitud[]    @relation("SolicitanteRelation")
-  solicitudesAsignadas  Solicitud[]    @relation("AsignadoRelation")
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  solicitudesCreadas    Solicitud[]      @relation("SolicitanteRelation")
+  solicitudesAsignadas  Solicitud[]      @relation("AsignadoRelation")
   reservasRadio         ReservaRadio[]
+  reservasValleIA       ReservaValleIA[]
   urgentes              Urgente[]
   refreshTokens         RefreshToken[]
-  notificaciones       Notificacion[]
+  notificaciones        Notificacion[]
 }
 
 model TipoSolicitud {
@@ -87,6 +88,20 @@ model Solicitud {
 }
 
 model ReservaRadio {
+  id             Int           @id @default(autoincrement())
+  dia            String
+  hora           String
+  semana         String
+  estado         EstadoReserva
+  solicitanteId  Int
+  formulario     Json
+  comentario     String?
+  gestionadoPor  String?
+  createdAt      DateTime      @default(now())
+  solicitante    User          @relation(fields: [solicitanteId], references: [id])
+}
+
+model ReservaValleIA {
   id             Int           @id @default(autoincrement())
   dia            String
   hora           String

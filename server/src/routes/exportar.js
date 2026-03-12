@@ -29,7 +29,7 @@ function generateCSV(data, columns) {
 router.get(
   '/solicitudes',
   authenticateToken,
-  authorizeRoles('ADMIN'),
+  authorizeRoles('ADMIN', 'DIRECTOR'),
   async (req, res, next) => {
     try {
       const solicitudes = await prisma.solicitud.findMany({
@@ -121,7 +121,7 @@ router.get(
 router.get(
   '/radio',
   authenticateToken,
-  authorizeRoles('ADMIN'),
+  authorizeRoles('ADMIN', 'DIRECTOR'),
   async (req, res, next) => {
     try {
       const reservas = await prisma.reservaRadio.findMany({
@@ -195,7 +195,7 @@ router.get(
 router.get(
   '/urgentes',
   authenticateToken,
-  authorizeRoles('ADMIN'),
+  authorizeRoles('ADMIN', 'DIRECTOR'),
   async (req, res, next) => {
     try {
       const urgentes = await prisma.urgente.findMany({

@@ -9,6 +9,7 @@ import {
   BarChart3,
   Download,
   Users,
+  Brain,
   X,
 } from 'lucide-react';
 
@@ -17,6 +18,7 @@ const iconMap = {
   PlusCircle,
   FileText,
   Radio,
+  Brain,
   AlertTriangle,
   BarChart3,
   Download,
@@ -52,6 +54,12 @@ export default function Sidebar({ abierto, cerrar }) {
       visible: true,
     },
     {
+      to: '/valle-ia',
+      label: 'Valle del Software · IA',
+      icon: 'Brain',
+      visible: true,
+    },
+    {
       to: '/urgente',
       label: 'Canal urgente',
       icon: 'AlertTriangle',
@@ -67,13 +75,13 @@ export default function Sidebar({ abierto, cerrar }) {
       to: '/exportar',
       label: 'Exportar datos',
       icon: 'Download',
-      visible: usuario?.rol === 'admin',
+      visible: usuario?.rol === 'admin' || usuario?.rol === 'director',
     },
     {
       to: '/usuarios',
       label: 'Gestión de Usuarios',
       icon: 'Users',
-      visible: usuario?.rol === 'admin',
+      visible: usuario?.rol === 'admin' || usuario?.rol === 'director',
     },
   ];
 

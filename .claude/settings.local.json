@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -r \"TODO\\\\|FIXME\\\\|BUG\\\\|HACK\" /c/Users/Usuario/Desktop/ComunideskIUDC/src /c/Users/Usuario/Desktop/ComunideskIUDC/server/src --include=*.js --include=*.jsx)",
+      "Bash(psql --version)",
+      "Bash(docker --version)",
+      "Bash(ls -la c:/Users/Usuario/Desktop/ComunideskIUDC/*.env* c:/Users/Usuario/Desktop/ComunideskIUDC/.env*)",
+      "Bash(npm install:*)",
+      "Bash(npm run:*)",
+      "Bash(npx nodemon:*)",
+      "Bash(node src/index.js)",
+      "Bash(dir \"c:\\\\Users\\\\Usuario\\\\Desktop\\\\ComunideskIUDC\\\\server\")",
+      "Bash(docker compose:*)",
+      "Bash(docker info:*)",
+      "Bash(docker context:*)",
+      "Bash(Start-Process \"C:\\\\Program Files\\\\Docker\\\\Docker\\\\Docker Desktop.exe\")",
+      "Bash(start \"\" \"C:\\\\Program Files\\\\Docker\\\\Docker\\\\Docker Desktop.exe\")",
+      "Bash(mkdir -p \"c:/Users/Usuario/Desktop/ComunideskIUDC/server/prisma/migrations/20260312000000_add_valle_ia\")",
+      "Bash(\"c:/Users/Usuario/Desktop/ComunideskIUDC/server/prisma/migrations/20260312000000_add_valle_ia/migration.sql\":*)"
+    ]
+  }
+}

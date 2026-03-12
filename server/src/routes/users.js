@@ -44,7 +44,7 @@ router.get('/equipo', authenticateToken, async (req, res, next) => {
 
 // ─── GET /api/users — List all users (ADMIN only) ───────────────────────────
 
-router.get('/', authenticateToken, authorizeRoles('ADMIN'), async (req, res, next) => {
+router.get('/', authenticateToken, authorizeRoles('ADMIN', 'DIRECTOR'), async (req, res, next) => {
   try {
     const { search, rol, page = 1, limit = 20 } = req.query;
     const pageNum = parseInt(page);
@@ -90,7 +90,7 @@ router.get('/', authenticateToken, authorizeRoles('ADMIN'), async (req, res, nex
 
 // ─── POST /api/users — Create user (ADMIN only) ────────────────────────────
 
-router.post('/', authenticateToken, authorizeRoles('ADMIN'), validate(createSchema), async (req, res, next) => {
+router.post('/', authenticateToken, authorizeRoles('ADMIN', 'DIRECTOR'), validate(createSchema), async (req, res, next) => {
   try {
     const { email, nombre, cargo, password, rol } = req.body;
 
@@ -130,7 +130,7 @@ router.post('/', authenticateToken, authorizeRoles('ADMIN'), validate(createSche
 
 // ─── PATCH /api/users/:id/rol — Change user role (ADMIN only) ────────────────
 
-router.patch('/:id/rol', authenticateToken, authorizeRoles('ADMIN'), validate(rolSchema), async (req, res, next) => {
+router.patch('/:id/rol', authenticateToken, authorizeRoles('ADMIN', 'DIRECTOR'), validate(rolSchema), async (req, res, next) => {
   try {
     const userId = parseInt(req.params.id);
     const { rol } = req.body;
@@ -165,7 +165,7 @@ router.patch('/:id/rol', authenticateToken, authorizeRoles('ADMIN'), validate(ro
 
 // ─── PATCH /api/users/:id — Update user info (ADMIN only) ────────────────────
 
-router.patch('/:id', authenticateToken, authorizeRoles('ADMIN'), validate(updateSchema), async (req, res, next) => {
+router.patch('/:id', authenticateToken, authorizeRoles('ADMIN', 'DIRECTOR'), validate(updateSchema), async (req, res, next) => {
   try {
     const userId = parseInt(req.params.id);
     const { nombre, cargo, email } = req.body;
@@ -207,7 +207,7 @@ router.patch('/:id', authenticateToken, authorizeRoles('ADMIN'), validate(update
 
 // ─── DELETE /api/users/:id — Delete user (ADMIN only) ──────────────────────
 
-router.delete('/:id', authenticateToken, authorizeRoles('ADMIN'), async (req, res, next) => {
+router.delete('/:id', authenticateToken, authorizeRoles('ADMIN', 'DIRECTOR'), async (req, res, next) => {
   try {
     const userId = parseInt(req.params.id);
 

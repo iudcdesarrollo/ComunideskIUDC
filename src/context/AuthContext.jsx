@@ -73,7 +73,7 @@ export function AuthProvider({ children }) {
   const esEquipo = () => usuario?.rol === 'equipo';
   const esSolicitante = () => usuario?.rol === 'solicitante';
   const puedeVerUrgentes = () => esAdmin() || esDirector();
-  const puedeGestionarSolicitudes = () => esAdmin() || esEquipo();
+  const puedeGestionarSolicitudes = () => esAdmin() || esDirector() || esEquipo();
 
   return (
     <AuthContext.Provider

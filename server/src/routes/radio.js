@@ -19,6 +19,10 @@ const reservaSchema = z.object({
   }).passthrough(),
 });
 
+const rechazarSchema = z.object({
+  comentario: z.string().min(5, 'El comentario debe tener al menos 5 caracteres'),
+});
+
 // ─── Static Config ─────────────────────────────────────
 
 const FRANJAS = [
@@ -30,14 +34,12 @@ const FRANJAS = [
 const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
 
 // ─── GET /api/radio/config ─────────────────────────────
-// Public — returns static radio schedule config
 
 router.get('/config', (req, res) => {
   res.json({ franjas: FRANJAS, dias: DIAS });
 });
 
 // ─── GET /api/radio/programas-fijos ────────────────────
-// Public — returns all fixed programs
 
 router.get('/programas-fijos', async (req, res, next) => {
   try {
@@ -49,20 +51,17 @@ router.get('/programas-fijos', async (req, res, next) => {
 });
 
 // ─── GET /api/radio/reservas/pendientes ────────────────
-// Protected (ADMIN, EQUIPO) — returns pending reservations
-// IMPORTANT: This route MUST be before /reservas/:id to avoid route conflict
+// MUST be before /reservas/:id
 
 router.get(
   '/reservas/pendientes',
   authenticateToken,
-  authorizeRoles('ADMIN', 'EQUIPO'),
+  authorizeRoles('ADMIN', 'DIRECTOR', 'EQUIPO'),
   async (req, res, next) => {
     try {
       const pendientes = await prisma.reservaRadio.findMany({
         where: { estado: 'PENDIENTE' },
-        include: {
-          solicitante: { select: { id: true, nombre: true } },
-        },
+        include: { solicitante: { select: { id: true, nombre: true } } },
         orderBy: [{ semana: 'asc' }, { dia: 'asc' }, { hora: 'asc' }],
       });
       res.json(pendientes);
@@ -72,8 +71,77 @@ router.get(
   }
 );
 
+// ─── GET /api/radio/reservas/novedades ─────────────────
+// Returns all rejected reservations (with comments) for the novedad log
+
+router.get(
+  '/reservas/novedades',
+  authenticateToken,
+  authorizeRoles('ADMIN', 'DIRECTOR', 'EQUIPO'),
+  async (req, res, next) => {
+    try {
+      const { semana } = req.query;
+      const where = { estado: 'RECHAZADA', comentario: { not: null } };
+      if (semana) where.semana = semana;
+
+      const novedades = await prisma.reservaRadio.findMany({
+        where,
+        include: { solicitante: { select: { id: true, nombre: true } } },
+        orderBy: { createdAt: 'desc' },
+      });
+      res.json(novedades);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// ─── GET /api/radio/reservas/novedades/csv ─────────────
+// Export novedades as CSV
+
+router.get(
+  '/reservas/novedades/csv',
+  authenticateToken,
+  authorizeRoles('ADMIN', 'DIRECTOR', 'EQUIPO'),
+  async (req, res, next) => {
+    try {
+      const { semana } = req.query;
+      const where = { estado: 'RECHAZADA', comentario: { not: null } };
+      if (semana) where.semana = semana;
+
+      const novedades = await prisma.reservaRadio.findMany({
+        where,
+        include: { solicitante: { select: { id: true, nombre: true } } },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      const escape = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+
+      const headers = ['ID', 'Semana', 'Día', 'Hora', 'Programa', 'Solicitante', 'Gestionado por', 'Comentario / Motivo', 'Fecha'];
+      const rows = novedades.map((n) => [
+        n.id,
+        n.semana,
+        n.dia,
+        n.hora,
+        n.formulario?.nombre_programa ?? '',
+        n.solicitante?.nombre ?? '',
+        n.gestionadoPor ?? '',
+        n.comentario ?? '',
+        new Date(n.createdAt).toLocaleDateString('es-CO'),
+      ].map(escape).join(','));
+
+      const csv = [headers.join(','), ...rows].join('\n');
+
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="novedades-radio-${semana || 'todas'}.csv"`);
+      res.send('\uFEFF' + csv); // BOM for Excel compatibility
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 // ─── GET /api/radio/reservas ───────────────────────────
-// Protected — returns reservations for a given week
 
 router.get('/reservas', authenticateToken, async (req, res, next) => {
   try {
@@ -85,9 +153,7 @@ router.get('/reservas', authenticateToken, async (req, res, next) => {
 
     const reservas = await prisma.reservaRadio.findMany({
       where: { semana },
-      include: {
-        solicitante: { select: { id: true, nombre: true } },
-      },
+      include: { solicitante: { select: { id: true, nombre: true } } },
       orderBy: [{ dia: 'asc' }, { hora: 'asc' }],
     });
 
@@ -98,7 +164,6 @@ router.get('/reservas', authenticateToken, async (req, res, next) => {
 });
 
 // ─── POST /api/radio/reservas ──────────────────────────
-// Protected — create a new reservation
 
 router.post(
   '/reservas',
@@ -108,42 +173,21 @@ router.post(
     try {
       const { dia, hora, semana, formulario } = req.body;
 
-      // Check if slot is a programa fijo
-      const programaFijo = await prisma.programaFijo.findFirst({
-        where: { dia, hora },
-      });
-
+      const programaFijo = await prisma.programaFijo.findFirst({ where: { dia, hora } });
       if (programaFijo) {
         return res.status(409).json({ error: 'Este espacio es un programa fijo' });
       }
 
-      // Check for double-booking (exclude RECHAZADA — rejected slots are bookable)
       const existing = await prisma.reservaRadio.findFirst({
-        where: {
-          dia,
-          hora,
-          semana,
-          estado: { not: 'RECHAZADA' },
-        },
+        where: { dia, hora, semana, estado: { not: 'RECHAZADA' } },
       });
-
       if (existing) {
         return res.status(409).json({ error: 'Este espacio ya está reservado' });
       }
 
-      // Create reservation
       const reserva = await prisma.reservaRadio.create({
-        data: {
-          dia,
-          hora,
-          semana,
-          estado: 'PENDIENTE',
-          solicitanteId: req.user.id,
-          formulario,
-        },
-        include: {
-          solicitante: { select: { id: true, nombre: true } },
-        },
+        data: { dia, hora, semana, estado: 'PENDIENTE', solicitanteId: req.user.id, formulario },
+        include: { solicitante: { select: { id: true, nombre: true } } },
       });
 
       res.status(201).json(reserva);
@@ -154,22 +198,19 @@ router.post(
 );
 
 // ─── PATCH /api/radio/reservas/:id/aprobar ─────────────
-// Protected (ADMIN, EQUIPO) — approve a reservation
 
 router.patch(
   '/reservas/:id/aprobar',
   authenticateToken,
-  authorizeRoles('ADMIN', 'EQUIPO'),
+  authorizeRoles('ADMIN', 'DIRECTOR', 'EQUIPO'),
   async (req, res, next) => {
     try {
       const id = parseInt(req.params.id, 10);
 
       const reserva = await prisma.reservaRadio.update({
         where: { id },
-        data: { estado: 'APROBADA' },
-        include: {
-          solicitante: { select: { id: true, nombre: true } },
-        },
+        data: { estado: 'APROBADA', gestionadoPor: req.user.email },
+        include: { solicitante: { select: { id: true, nombre: true } } },
       });
 
       await crearNotificacion({
@@ -182,43 +223,46 @@ router.patch(
 
       res.json(reserva);
     } catch (error) {
-      if (error.code === 'P2025') {
-        return res.status(404).json({ error: 'Reserva no encontrada' });
-      }
+      if (error.code === 'P2025') return res.status(404).json({ error: 'Reserva no encontrada' });
       next(error);
     }
   }
 );
 
-// ─── DELETE /api/radio/reservas/:id ────────────────────
-// Protected (ADMIN, EQUIPO) — reject/delete a reservation
+// ─── PATCH /api/radio/reservas/:id/rechazar ────────────
+// Requires a comentario — sets estado RECHAZADA (kept in DB for audit/novedades)
 
-router.delete(
-  '/reservas/:id',
+router.patch(
+  '/reservas/:id/rechazar',
   authenticateToken,
-  authorizeRoles('ADMIN', 'EQUIPO'),
+  authorizeRoles('ADMIN', 'DIRECTOR', 'EQUIPO'),
+  validate(rechazarSchema),
   async (req, res, next) => {
     try {
       const id = parseInt(req.params.id, 10);
+      const { comentario } = req.body;
 
-      const reserva = await prisma.reservaRadio.findUnique({ where: { id } });
-      if (reserva) {
-        await crearNotificacion({
-          userId: reserva.solicitanteId,
-          tipo: 'radio_rechazada',
-          titulo: 'Reserva rechazada',
-          mensaje: `Tu reserva de radio para ${reserva.dia} a las ${reserva.hora} fue rechazada`,
-          referenceId: String(reserva.id),
-        });
-      }
+      const reserva = await prisma.reservaRadio.update({
+        where: { id },
+        data: {
+          estado: 'RECHAZADA',
+          comentario,
+          gestionadoPor: req.user.email,
+        },
+        include: { solicitante: { select: { id: true, nombre: true } } },
+      });
 
-      await prisma.reservaRadio.delete({ where: { id } });
+      await crearNotificacion({
+        userId: reserva.solicitanteId,
+        tipo: 'radio_rechazada',
+        titulo: 'Reserva rechazada',
+        mensaje: `Tu reserva de radio para ${reserva.dia} a las ${reserva.hora} fue rechazada. Motivo: ${comentario}`,
+        referenceId: String(reserva.id),
+      });
 
-      res.status(204).end();
+      res.json(reserva);
     } catch (error) {
-      if (error.code === 'P2025') {
-        return res.status(404).json({ error: 'Reserva no encontrada' });
-      }
+      if (error.code === 'P2025') return res.status(404).json({ error: 'Reserva no encontrada' });
       next(error);
     }
   }

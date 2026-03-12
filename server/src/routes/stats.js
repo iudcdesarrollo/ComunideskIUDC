@@ -13,7 +13,7 @@ const prisma = new PrismaClient();
 router.get(
   '/dashboard',
   authenticateToken,
-  authorizeRoles('ADMIN', 'EQUIPO'),
+  authorizeRoles('ADMIN', 'DIRECTOR', 'EQUIPO'),
   async (req, res, next) => {
     try {
       // Total solicitudes
