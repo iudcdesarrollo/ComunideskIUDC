@@ -118,7 +118,7 @@ export default function Exportar() {
     <div className="max-w-3xl mx-auto space-y-6 px-4 sm:px-6">
       {/* Encabezado */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-2">
           <Download className="w-6 h-6 text-blue-600" />
           Exportar datos
         </h1>
@@ -245,7 +245,7 @@ export default function Exportar() {
       </div>
 
       {/* Botón de descarga */}
-      <div className="card flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div className="card flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <FileSpreadsheet className="w-8 h-8 text-emerald-600" />
           <div>

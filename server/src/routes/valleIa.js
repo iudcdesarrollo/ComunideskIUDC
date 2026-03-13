@@ -91,6 +91,12 @@ router.post('/reservas', authenticateToken, validate(reservaSchema), async (req,
   try {
     const { dia, hora, semana, formulario } = req.body;
 
+    // Reject reservations for past days
+    const hoy = new Date().toISOString().split('T')[0];
+    if (dia < hoy) {
+      return res.status(400).json({ error: 'No se pueden crear reservas en días pasados' });
+    }
+
     // Check if slot is already taken
     const existente = await prisma.reservaValleIA.findFirst({
       where: { dia, hora, semana, estado: { not: 'RECHAZADA' } },

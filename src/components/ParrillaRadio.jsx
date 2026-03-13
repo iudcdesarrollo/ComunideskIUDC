@@ -420,7 +420,8 @@ export default function ParrillaRadio() {
               className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors border border-gray-200"
             >
               <Download className="w-4 h-4" />
-              Exportar novedades CSV
+              <span className="hidden sm:inline">Exportar novedades CSV</span>
+              <span className="sm:hidden">CSV</span>
             </button>
           )}
         </div>
@@ -549,13 +550,13 @@ export default function ParrillaRadio() {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl my-8">
             {!reservaExitosa ? (
               <form onSubmit={reservarEspacio}>
-                <div className="flex items-center justify-between p-6 border-b border-gray-100">
-                  <h3 className="text-lg font-bold text-gray-900">Reservar espacio en Radio IUDC</h3>
+                <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-100">
+                  <h3 className="text-base sm:text-lg font-bold text-gray-900">Reservar espacio en Radio IUDC</h3>
                   <button type="button" onClick={() => setModalReserva(false)} className="p-1 hover:bg-gray-100 rounded-lg">
                     <X className="w-5 h-5 text-gray-400" />
                   </button>
                 </div>
-                <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto">
+                <div className="p-4 sm:p-6 space-y-5 max-h-[70vh] overflow-y-auto">
                   <div className="bg-blue-50 rounded-xl p-4 flex items-center gap-3">
                     <Radio className="w-5 h-5 text-blue-600 shrink-0" />
                     <div>
@@ -620,8 +621,8 @@ export default function ParrillaRadio() {
                     <textarea value={formRadio.contenido} onChange={(e) => setFormRadio((p) => ({ ...p, contenido: e.target.value }))} className="input-field min-h-[100px] resize-y" placeholder="Describe el contenido y desarrollo..." required />
                   </div>
                 </div>
-                <div className="flex gap-3 p-6 border-t border-gray-100">
-                  <button type="submit" className="btn-primary flex items-center gap-2"><Send className="w-4 h-4" /> Enviar solicitud</button>
+                <div className="flex flex-col sm:flex-row gap-3 p-4 sm:p-6 border-t border-gray-100">
+                  <button type="submit" className="btn-primary flex items-center justify-center gap-2"><Send className="w-4 h-4" /> Enviar solicitud</button>
                   <button type="button" onClick={() => setModalReserva(false)} className="btn-secondary">Cancelar</button>
                 </div>
               </form>
@@ -643,11 +644,11 @@ export default function ParrillaRadio() {
       {modalDetalle && reservaDetalle && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-start justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl my-8">
-            <div className="flex items-center justify-between p-6 border-b border-gray-100">
-              <h3 className="text-lg font-bold text-gray-900">Detalle de reserva</h3>
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-100">
+              <h3 className="text-base sm:text-lg font-bold text-gray-900">Detalle de reserva</h3>
               <button onClick={() => setModalDetalle(false)} className="p-1 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5 text-gray-400" /></button>
             </div>
-            <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+            <div className="p-4 sm:p-6 space-y-4 max-h-[70vh] overflow-y-auto">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className={`badge text-sm ${
                   reservaDetalle.estado === 'aprobada' ? 'badge-completada' :
@@ -690,7 +691,7 @@ export default function ParrillaRadio() {
               {reservaDetalle.formulario?.conductor && (
                 <div>
                   <h4 className="font-semibold text-gray-900 text-sm mb-2 flex items-center gap-2"><User className="w-4 h-4 text-blue-500" /> Conductor</h4>
-                  <div className="bg-blue-50 rounded-xl p-4 grid sm:grid-cols-3 gap-2 text-sm">
+                  <div className="bg-blue-50 rounded-xl p-4 grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm">
                     <div><p className="text-xs text-blue-400">Nombre</p><p className="font-medium text-blue-900">{reservaDetalle.formulario.conductor.nombre}</p></div>
                     <div><p className="text-xs text-blue-400">Perfil</p><p className="font-medium text-blue-900">{reservaDetalle.formulario.conductor.perfil || '—'}</p></div>
                     <div><p className="text-xs text-blue-400">Contacto</p><p className="font-medium text-blue-900">{reservaDetalle.formulario.conductor.contacto || '—'}</p></div>
@@ -703,7 +704,7 @@ export default function ParrillaRadio() {
                   <h4 className="font-semibold text-gray-900 text-sm mb-2 flex items-center gap-2"><Users className="w-4 h-4 text-blue-500" /> Invitados</h4>
                   <div className="space-y-2">
                     {reservaDetalle.formulario.invitados.filter(i => i.nombre).map((inv, i) => (
-                      <div key={i} className="bg-gray-50 rounded-xl p-3 grid sm:grid-cols-4 gap-2 text-sm">
+                      <div key={i} className="bg-gray-50 rounded-xl p-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
                         <div><p className="text-xs text-gray-400">Nombre</p><p className="font-medium">{inv.nombre}</p></div>
                         <div><p className="text-xs text-gray-400">Perfil</p><p className="font-medium">{inv.perfil || '—'}</p></div>
                         <div><p className="text-xs text-gray-400">Contacto</p><p className="font-medium">{inv.contacto || '—'}</p></div>
@@ -724,27 +725,27 @@ export default function ParrillaRadio() {
 
             {/* Acciones para PENDIENTE */}
             {puedeGestionarSolicitudes() && reservaDetalle.estado === 'pendiente' && (
-              <div className="flex gap-3 p-6 border-t border-gray-100">
+              <div className="flex flex-wrap gap-3 p-4 sm:p-6 border-t border-gray-100">
                 <button onClick={() => aprobarReserva(reservaDetalle.id)} className="bg-emerald-500 hover:bg-emerald-600 text-white font-medium py-2.5 px-5 rounded-xl flex items-center gap-2 transition-colors">
                   <Check className="w-4 h-4" /> Aprobar
                 </button>
                 <button onClick={() => iniciarRechazo(reservaDetalle)} className="btn-danger flex items-center gap-2">
                   <XCircle className="w-4 h-4" /> Rechazar
                 </button>
-                <button onClick={() => setModalDetalle(false)} className="btn-secondary ml-auto">Cerrar</button>
+                <button onClick={() => setModalDetalle(false)} className="btn-secondary sm:ml-auto">Cerrar</button>
               </div>
             )}
             {/* Cancelar reserva APROBADA — solo equipo/admin, solo si no ha pasado */}
             {puedeGestionarSolicitudes() && reservaDetalle.estado === 'aprobada' && !esPasado(reservaDetalle.dia, reservaDetalle.hora) && (
-              <div className="flex gap-3 p-6 border-t border-gray-100">
+              <div className="flex flex-wrap gap-3 p-4 sm:p-6 border-t border-gray-100">
                 <button onClick={() => iniciarRechazo(reservaDetalle)} className="btn-danger flex items-center gap-2">
                   <XCircle className="w-4 h-4" /> Cancelar reserva
                 </button>
-                <button onClick={() => setModalDetalle(false)} className="btn-secondary ml-auto">Cerrar</button>
+                <button onClick={() => setModalDetalle(false)} className="btn-secondary sm:ml-auto">Cerrar</button>
               </div>
             )}
             {(!puedeGestionarSolicitudes() || reservaDetalle.estado === 'rechazada') && (
-              <div className="flex gap-3 p-6 border-t border-gray-100">
+              <div className="flex gap-3 p-4 sm:p-6 border-t border-gray-100">
                 <button onClick={() => setModalDetalle(false)} className="btn-secondary">Cerrar</button>
               </div>
             )}
@@ -786,11 +787,11 @@ export default function ParrillaRadio() {
                 <p className="text-xs text-gray-400 mt-1">{comentarioRechazo.length} caracteres (mín. 5)</p>
               </div>
             </div>
-            <div className="flex gap-3 p-5 border-t border-gray-100">
+            <div className="flex flex-col sm:flex-row gap-3 p-4 sm:p-5 border-t border-gray-100">
               <button
                 onClick={confirmarRechazo}
                 disabled={comentarioRechazo.trim().length < 5 || rechazandoId !== null}
-                className="bg-red-500 hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium py-2.5 px-5 rounded-xl flex items-center gap-2 transition-colors"
+                className="bg-red-500 hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium py-2.5 px-5 rounded-xl flex items-center justify-center gap-2 transition-colors"
               >
                 <XCircle className="w-4 h-4" />
                 {rechazandoId

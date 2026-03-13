@@ -101,7 +101,7 @@ export default function CanalUrgente() {
           <AlertTriangle className="w-6 h-6 text-red-600" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Canal urgente</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Canal urgente</h1>
           <p className="text-gray-500 mt-0.5 text-sm flex items-center gap-1">
             <Shield className="w-3.5 h-3.5" />
             Solo visible para el Administrador

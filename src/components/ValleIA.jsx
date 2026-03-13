@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import {
   Brain, CheckCircle2, Clock, X, Send, Check, XCircle,
-  ChevronLeft, ChevronRight, Calendar, Monitor,
+  ChevronLeft, ChevronRight, Calendar, Monitor, Eye,
 } from 'lucide-react';
 
 function obtenerLunesDeSemana(fecha) {
@@ -34,16 +34,22 @@ function esDiaPasado(fechaDia) {
   return fechaDia < HOY;
 }
 
-// Franjas fijas: 9:30 a.m. — 1:00 p.m.
+// Franjas fijas: 4 bloques de 1 hora (9:30–10:30, 10:30–11:30, 11:30–12:30, 12:00–13:00)
 const FRANJAS_FIJAS = [
-  '9:30 a.m.', '10:00 a.m.', '10:30 a.m.', '11:00 a.m.',
-  '11:30 a.m.', '12:00 p.m.', '12:30 p.m.', '1:00 p.m.',
+  '9:30 a.m.', '10:30 a.m.', '11:30 a.m.', '12:00 p.m.',
 ];
+const FRANJAS_FIN = {
+  '9:30 a.m.':  '10:30 a.m.',
+  '10:30 a.m.': '11:30 a.m.',
+  '11:30 a.m.': '12:30 p.m.',
+  '12:00 p.m.': '1:00 p.m.',
+};
 
 export default function ValleIA() {
   const { puedeGestionarSolicitudes } = useAuth();
   const [semanaActual, setSemanaActual] = useState(() => obtenerLunesDeSemana(new Date()));
   const [reservas, setReservas] = useState([]);
+  const [pendientes, setPendientes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [diaSeleccionado, setDiaSeleccionado] = useState(null);
   const [modalReserva, setModalReserva] = useState(false);
@@ -63,15 +69,23 @@ export default function ValleIA() {
     } catch (e) { console.error(e); }
   }, [semanaKey]);
 
+  const cargarPendientes = useCallback(async () => {
+    if (!puedeGestionarSolicitudes()) return;
+    try {
+      const res = await api.get('/valle-ia/reservas/pendientes');
+      setPendientes(Array.isArray(res) ? res : []);
+    } catch (e) { console.error(e); }
+  }, [puedeGestionarSolicitudes]);
+
   useEffect(() => {
     const cargar = async () => {
       try {
-        await cargarReservas();
+        await Promise.all([cargarReservas(), cargarPendientes()]);
       } catch (e) { console.error(e); }
       finally { setLoading(false); }
     };
     cargar();
-  }, [semanaKey]);
+  }, [cargarReservas, cargarPendientes]);
 
   const getReserva = (fechaDia, hora) =>
     reservas.find((r) => r.dia === fechaDia && r.hora === hora && r.estado !== 'RECHAZADA');
@@ -82,7 +96,7 @@ export default function ValleIA() {
     if (existente) {
       setReservaDetalle(existente);
       setModalDetalle(true);
-    } else {
+    } else if (!esDiaPasado(fechaDia)) {
       setSlotSeleccionado({ dia: fechaDia, diaLabel: DIA_LABELS[diaIndex], hora });
       setForm(FORM_VACIO);
       setModalReserva(true);
@@ -113,11 +127,19 @@ export default function ValleIA() {
   const cambiarEstado = async (id, estado) => {
     try {
       await api.patch(`/valle-ia/reservas/${id}/estado`, { estado });
-      await cargarReservas();
+      await Promise.all([cargarReservas(), cargarPendientes()]);
       setModalDetalle(false);
     } catch (err) {
       alert(err.data?.error || 'Error al actualizar');
     }
+  };
+
+  const verDetalle = (reserva) => {
+    setReservaDetalle(reserva);
+    // Navegar al día correspondiente en el calendario
+    const idx = DIA_LABELS.findIndex((_, i) => obtenerFechaDia(semanaActual, i) === reserva.dia);
+    if (idx >= 0) setDiaSeleccionado(idx);
+    setModalDetalle(true);
   };
 
   const semanaAnterior = () => {
@@ -149,7 +171,7 @@ export default function ValleIA() {
             <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-lg flex items-center justify-center">
               <Brain className="w-4 h-4 text-white" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">Valle del Software · IA</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Valle del Software · IA</h1>
           </div>
           <p className="text-gray-500 text-sm">
             Agenda un equipo para trabajar con IA · Horario: <span className="font-semibold text-purple-600">9:30 a.m. — 1:00 p.m.</span> · Lunes a Jueves
@@ -164,6 +186,53 @@ export default function ValleIA() {
           <div>
             <p className="text-green-800 font-semibold text-sm">¡Equipo agendado exitosamente!</p>
             <p className="text-green-700 text-xs mt-0.5">Tu solicitud está pendiente de confirmación por el equipo.</p>
+          </div>
+        </div>
+      )}
+
+      {/* Panel: Agendamientos pendientes de confirmación */}
+      {puedeGestionarSolicitudes() && pendientes.length > 0 && (
+        <div className="card border-l-4 border-l-purple-400">
+          <h2 className="font-semibold text-gray-900 mb-3 text-sm flex items-center gap-2">
+            <Clock className="w-4 h-4 text-purple-500" />
+            Agendamientos pendientes de confirmación
+            <span className="ml-auto bg-purple-100 text-purple-700 text-xs font-bold px-2 py-0.5 rounded-full">
+              {pendientes.length}
+            </span>
+          </h2>
+          <div className="space-y-2">
+            {pendientes.map((res) => (
+              <div key={res.id} className="flex flex-col gap-3 p-3.5 bg-purple-50 rounded-xl sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-0.5 text-sm">
+                  <span className="font-semibold text-gray-900">
+                    {res.formulario?.nombre_docente || res.solicitante?.nombre || 'Sin nombre'}
+                  </span>
+                  <span className="text-gray-500 text-xs">
+                    {res.dia} · {res.hora} · {res.formulario?.nombre_proyecto || ''}
+                  </span>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <button
+                    onClick={() => verDetalle(res)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-purple-200 text-purple-700 text-xs font-medium hover:bg-purple-100 transition-colors"
+                  >
+                    <Eye className="w-3.5 h-3.5" /> Ver
+                  </button>
+                  <button
+                    onClick={() => cambiarEstado(res.id, 'RECHAZADA')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-red-600 text-xs font-medium hover:bg-red-50 transition-colors"
+                  >
+                    <XCircle className="w-3.5 h-3.5" /> Rechazar
+                  </button>
+                  <button
+                    onClick={() => cambiarEstado(res.id, 'APROBADA')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-600 text-white text-xs font-medium hover:bg-green-700 transition-colors"
+                  >
+                    <Check className="w-3.5 h-3.5" /> Confirmar
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -188,7 +257,8 @@ export default function ValleIA() {
           {DIA_LABELS.map((dia, i) => {
             const fecha = obtenerFechaDia(semanaActual, i);
             const reservasDia = reservas.filter((r) => r.dia === fecha && r.estado !== 'RECHAZADA').length;
-            const isHoy = fecha === new Date().toISOString().split('T')[0];
+            const isHoy = fecha === HOY;
+            const pasado = esDiaPasado(fecha);
             return (
               <button
                 key={dia}
@@ -196,24 +266,33 @@ export default function ValleIA() {
                 className={`flex flex-col items-center gap-1 py-4 px-2 transition-colors border-r last:border-r-0 border-gray-100 ${
                   diaActivo === i
                     ? 'bg-purple-600 text-white'
-                    : 'hover:bg-purple-50 text-gray-700'
+                    : pasado
+                      ? 'bg-gray-50 text-gray-400 hover:bg-gray-100'
+                      : 'hover:bg-purple-50 text-gray-700'
                 }`}
               >
-                <span className={`text-xs font-medium uppercase tracking-wide ${diaActivo === i ? 'text-purple-200' : 'text-gray-400'}`}>
+                <span className={`text-xs font-medium uppercase tracking-wide ${
+                  diaActivo === i ? 'text-purple-200' : pasado ? 'text-gray-300' : 'text-gray-400'
+                }`}>
                   {dia.slice(0, 3)}
                 </span>
-                <span className={`text-lg font-bold leading-none ${isHoy && diaActivo !== i ? 'text-purple-600' : ''}`}>
+                <span className={`text-lg font-bold leading-none ${
+                  pasado && diaActivo !== i ? 'text-gray-300' : isHoy && diaActivo !== i ? 'text-purple-600' : ''
+                }`}>
                   {fecha.slice(8)}
                 </span>
                 {reservasDia > 0 && (
                   <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
-                    diaActivo === i ? 'bg-purple-500 text-white' : 'bg-purple-100 text-purple-600'
+                    diaActivo === i ? 'bg-purple-500 text-white' : pasado ? 'bg-gray-200 text-gray-500' : 'bg-purple-100 text-purple-600'
                   }`}>
                     {reservasDia} {reservasDia === 1 ? 'reserva' : 'reservas'}
                   </span>
                 )}
                 {isHoy && (
                   <span className={`text-[10px] font-semibold ${diaActivo === i ? 'text-purple-200' : 'text-purple-500'}`}>hoy</span>
+                )}
+                {pasado && !isHoy && (
+                  <span className="text-[10px] text-gray-300">pasado</span>
                 )}
               </button>
             );
@@ -235,17 +314,21 @@ export default function ValleIA() {
               const reserva = getReserva(fechaDiaActivo, hora);
               const esAprobada = reserva?.estado === 'APROBADA';
               const esPendiente = reserva?.estado === 'PENDIENTE';
+              const pasadoSinReserva = esDiaPasado(fechaDiaActivo) && !reserva;
 
               return (
                 <button
                   key={hora}
-                  onClick={() => abrirSlot(diaActivo, hora)}
+                  onClick={() => !pasadoSinReserva && abrirSlot(diaActivo, hora)}
+                  disabled={pasadoSinReserva}
                   className={`relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all duration-150 text-center group ${
-                    esAprobada
-                      ? 'bg-green-50 border-green-300 cursor-pointer'
-                      : esPendiente
-                        ? 'bg-amber-50 border-amber-300 cursor-pointer'
-                        : 'bg-white border-gray-200 hover:border-purple-400 hover:bg-purple-50 cursor-pointer hover:shadow-sm'
+                    pasadoSinReserva
+                      ? 'bg-gray-50 border-gray-100 cursor-not-allowed opacity-50'
+                      : esAprobada
+                        ? 'bg-green-50 border-green-300 cursor-pointer'
+                        : esPendiente
+                          ? 'bg-amber-50 border-amber-300 cursor-pointer'
+                          : 'bg-white border-gray-200 hover:border-purple-400 hover:bg-purple-50 cursor-pointer hover:shadow-sm'
                   }`}
                 >
                   <div className="flex items-center gap-1.5">
@@ -253,14 +336,17 @@ export default function ValleIA() {
                       ? <CheckCircle2 className="w-4 h-4 text-green-600" />
                       : esPendiente
                         ? <Clock className="w-4 h-4 text-amber-500" />
-                        : <Clock className="w-4 h-4 text-gray-300 group-hover:text-purple-400 transition-colors" />
+                        : <Clock className={`w-4 h-4 ${pasadoSinReserva ? 'text-gray-300' : 'text-gray-300 group-hover:text-purple-400 transition-colors'}`} />
                     }
                     <span className={`text-sm font-bold ${
-                      esAprobada ? 'text-green-700' : esPendiente ? 'text-amber-700' : 'text-gray-800'
+                      esAprobada ? 'text-green-700' : esPendiente ? 'text-amber-700' : pasadoSinReserva ? 'text-gray-400' : 'text-gray-800'
                     }`}>
                       {hora}
                     </span>
                   </div>
+                  <span className={`text-[10px] ${pasadoSinReserva ? 'text-gray-300' : esAprobada ? 'text-green-500' : esPendiente ? 'text-amber-500' : 'text-gray-400'}`}>
+                    hasta {FRANJAS_FIN[hora]}
+                  </span>
 
                   {reserva ? (
                     <>
@@ -276,8 +362,10 @@ export default function ValleIA() {
                       </span>
                     </>
                   ) : (
-                    <span className="text-[11px] text-gray-400 group-hover:text-purple-500 transition-colors font-medium">
-                      Disponible
+                    <span className={`text-[11px] font-medium ${
+                      pasadoSinReserva ? 'text-gray-300' : 'text-gray-400 group-hover:text-purple-500 transition-colors'
+                    }`}>
+                      {pasadoSinReserva ? 'No disponible' : 'Disponible'}
                     </span>
                   )}
                 </button>
@@ -290,6 +378,7 @@ export default function ValleIA() {
             <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded border-2 border-gray-200 bg-white" /><span>Disponible — clic para agendar</span></div>
             <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded border-2 border-amber-300 bg-amber-50" /><span>Pendiente de confirmación</span></div>
             <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded border-2 border-green-300 bg-green-50" /><span>Confirmado</span></div>
+            <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded border-2 border-gray-100 bg-gray-50 opacity-50" /><span>No disponible (día pasado)</span></div>
           </div>
         </div>
       </div>
@@ -298,10 +387,10 @@ export default function ValleIA() {
       {modalReserva && slotSeleccionado && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-t-2xl p-5 text-white">
+            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-t-2xl p-4 sm:p-5 text-white">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-bold text-lg">Agendar equipo · IA</h3>
+                  <h3 className="font-bold text-base sm:text-lg">Agendar equipo · IA</h3>
                   <p className="text-purple-200 text-sm mt-0.5">
                     {slotSeleccionado.diaLabel} {slotSeleccionado.dia.slice(8)}/{slotSeleccionado.dia.slice(5,7)} · {slotSeleccionado.hora}
                   </p>
@@ -311,7 +400,7 @@ export default function ValleIA() {
                 </button>
               </div>
             </div>
-            <form onSubmit={enviarReserva} className="p-5 space-y-4">
+            <form onSubmit={enviarReserva} className="p-4 sm:p-5 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Nombre del docente *</label>
                 <input type="text" className="input-field w-full" placeholder="Tu nombre completo"
@@ -337,8 +426,8 @@ export default function ValleIA() {
                 <Brain className="w-3.5 h-3.5 mt-0.5 shrink-0" />
                 <span>El equipo del Valle del Software confirmará tu reserva. Recibirás la respuesta por el canal de comunicaciones.</span>
               </div>
-              <div className="flex gap-3">
-                <button type="button" onClick={() => setModalReserva(false)} className="btn-secondary flex-1">Cancelar</button>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button type="button" onClick={() => setModalReserva(false)} className="btn-secondary sm:flex-1">Cancelar</button>
                 <button type="submit" disabled={enviando}
                   className="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors disabled:opacity-60">
                   {enviando ? <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : <Send className="w-4 h-4" />}

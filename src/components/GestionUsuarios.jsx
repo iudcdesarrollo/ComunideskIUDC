@@ -182,7 +182,7 @@ export default function GestionUsuarios() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Gestión de Usuarios</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Gestión de Usuarios</h1>
           <p className="text-gray-500 mt-1">
             {total} usuario{total !== 1 ? 's' : ''} registrado{total !== 1 ? 's' : ''}
           </p>
@@ -332,8 +332,8 @@ export default function GestionUsuarios() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-gray-50">
-            <p className="text-sm text-gray-500">
+          <div className="flex items-center justify-between flex-wrap gap-2 px-4 py-3 border-t border-gray-100 bg-gray-50">
+            <p className="text-xs sm:text-sm text-gray-500">
               Mostrando {startItem}-{endItem} de {total}
             </p>
             <div className="flex items-center gap-1">
