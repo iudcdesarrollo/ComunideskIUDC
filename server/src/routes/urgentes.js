@@ -35,8 +35,8 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-// POST /api/urgentes — Create urgent request
-router.post('/', validate(createSchema), async (req, res, next) => {
+// POST /api/urgentes — Create urgent request (solo Admin/Director)
+router.post('/', authorizeRoles('ADMIN', 'DIRECTOR'), validate(createSchema), async (req, res, next) => {
   try {
     const { titulo, descripcion } = req.body;
     const urgente = await prisma.urgente.create({
@@ -70,8 +70,8 @@ router.post('/', validate(createSchema), async (req, res, next) => {
   }
 });
 
-// PATCH /api/urgentes/:id/estado — Update status (ADMIN only for this)
-router.patch('/:id/estado', validate(estadoSchema), async (req, res, next) => {
+// PATCH /api/urgentes/:id/estado — Update status (solo Admin/Director)
+router.patch('/:id/estado', authorizeRoles('ADMIN', 'DIRECTOR'), validate(estadoSchema), async (req, res, next) => {
   try {
     const { id } = req.params;
     const { estado } = req.body;

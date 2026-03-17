@@ -64,15 +64,8 @@ router.get('/', authenticateToken, async (req, res, next) => {
     // Role-based filtering
     if (req.user.rol === 'SOLICITANTE') {
       conditions.push({ solicitanteId: req.user.id });
-    } else if (req.user.rol === 'EQUIPO') {
-      conditions.push({
-        OR: [
-          { asignadoAId: req.user.id },
-          { estado: 'PENDIENTE' },
-        ],
-      });
     }
-    // ADMIN, DIRECTOR: no role-based restriction
+    // ADMIN, DIRECTOR, EQUIPO: no role-based restriction (ven todas)
 
     // Query filters
     if (estado) {

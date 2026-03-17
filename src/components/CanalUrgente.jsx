@@ -104,56 +104,58 @@ export default function CanalUrgente() {
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Canal urgente</h1>
           <p className="text-gray-500 mt-0.5 text-sm flex items-center gap-1">
             <Shield className="w-3.5 h-3.5" />
-            Solo visible para el Administrador
+            Solo visible para Administración y Equipo
           </p>
         </div>
       </div>
 
-      {/* Formulario de solicitud urgente */}
-      <div className="card border-l-4 border-l-red-500">
-        <h2 className="font-semibold text-gray-900 mb-4">Nueva solicitud urgente</h2>
+      {/* Formulario de solicitud urgente — solo Admin/Director */}
+      {(esAdmin() || esDirector()) && (
+        <div className="card border-l-4 border-l-red-500">
+          <h2 className="font-semibold text-gray-900 mb-4">Nueva solicitud urgente</h2>
 
-        {enviado && (
-          <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl mb-4 text-sm">
-            <CheckCircle2 className="w-4 h-4 shrink-0" />
-            Solicitud urgente enviada correctamente.
-          </div>
-        )}
+          {enviado && (
+            <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl mb-4 text-sm">
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              Solicitud urgente enviada correctamente.
+            </div>
+          )}
 
-        <form onSubmit={enviarUrgente} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Asunto <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={titulo}
-              onChange={(e) => setTitulo(e.target.value)}
-              placeholder="Describe brevemente la urgencia"
-              className="input-field"
-              required
-            />
-          </div>
+          <form onSubmit={enviarUrgente} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Asunto <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={titulo}
+                onChange={(e) => setTitulo(e.target.value)}
+                placeholder="Describe brevemente la urgencia"
+                className="input-field"
+                required
+              />
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Descripción detallada <span className="text-red-500">*</span>
-            </label>
-            <textarea
-              value={descripcion}
-              onChange={(e) => setDescripcion(e.target.value)}
-              placeholder="Explica todos los detalles de la solicitud urgente..."
-              className="input-field min-h-[120px] resize-y"
-              required
-            />
-          </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Descripción detallada <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={descripcion}
+                onChange={(e) => setDescripcion(e.target.value)}
+                placeholder="Explica todos los detalles de la solicitud urgente..."
+                className="input-field min-h-[120px] resize-y"
+                required
+              />
+            </div>
 
-          <button type="submit" className="btn-danger flex items-center gap-2">
-            <Send className="w-4 h-4" />
-            Enviar solicitud urgente
-          </button>
-        </form>
-      </div>
+            <button type="submit" className="btn-danger flex items-center gap-2">
+              <Send className="w-4 h-4" />
+              Enviar solicitud urgente
+            </button>
+          </form>
+        </div>
+      )}
 
       {/* Lista de urgentes */}
       <div>
