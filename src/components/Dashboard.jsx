@@ -737,7 +737,7 @@ export default function Dashboard() {
       <div className="grid md:grid-cols-3 gap-4 sm:gap-6">
         {/* Acciones rápidas - Solo solicitantes */}
         {esSolicitante() && (
-          <div className="md:col-span-1">
+          <div className="md:col-span-1 order-2 md:order-1">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Crear solicitud</h2>
             <div className="space-y-2">
               {tipos.filter((t) => t.id !== 'radio').map((tipo) => {
@@ -763,7 +763,7 @@ export default function Dashboard() {
 
         {/* Carga de trabajo - Solo equipo */}
         {esEquipo() && (
-          <div className="md:col-span-1">
+          <div className="md:col-span-1 order-2 md:order-1">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Mi carga de trabajo</h2>
             <div className="card space-y-4">
               <div className="flex items-center justify-between">
@@ -796,7 +796,7 @@ export default function Dashboard() {
 
         {/* Accesos rápidos - Admin y Director */}
         {(esAdmin() || esDirector()) && (
-          <div className="md:col-span-1">
+          <div className="md:col-span-1 order-2 md:order-1">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Accesos rápidos</h2>
             <div className="space-y-2">
               <button onClick={() => navigate('/nueva-solicitud')} className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 transition-all">
@@ -829,7 +829,7 @@ export default function Dashboard() {
         )}
 
         {/* Solicitudes recientes */}
-        <div className="md:col-span-2">
+        <div className="md:col-span-2 order-1 md:order-2">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900">
               {esEquipo() ? 'Solicitudes por atender' : esSolicitante() ? 'Mis solicitudes recientes' : 'Todas las solicitudes'}
@@ -855,8 +855,8 @@ export default function Dashboard() {
                 const prioridad = (sol.prioridad || '').toUpperCase();
                 const prioridadColor = prioridad === 'ALTA' ? 'bg-red-500' : prioridad === 'MEDIA' ? 'bg-amber-400' : 'bg-gray-300';
                 return (
-                  <div key={sol.id} className="card-hover flex items-center gap-4" onClick={() => navigate(`/mis-solicitudes?expand=${sol.id}`)}>
-                    <div className="hidden sm:flex w-10 h-10 bg-gray-100 rounded-xl items-center justify-center text-xs font-bold text-gray-500 relative">
+                  <div key={sol.id} className={`card-hover flex items-center gap-3 border-l-4 ${prioridad === 'ALTA' ? 'border-l-red-400' : prioridad === 'MEDIA' ? 'border-l-amber-400' : 'border-l-gray-200'}`} onClick={() => navigate(`/mis-solicitudes?expand=${sol.id}`)}>
+                    <div className="hidden sm:flex w-10 h-10 bg-gray-100 rounded-xl items-center justify-center text-xs font-bold text-gray-500 relative shrink-0">
                       {sol.id.split('-')[1]}
                       {esEquipo() && <span className={`absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full ${prioridadColor}`} title={sol.prioridad} />}
                     </div>
