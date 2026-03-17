@@ -97,6 +97,12 @@ export default function ValleIA() {
   const [encuestaForm, setEncuestaForm] = useState({ calificacionClase: 0, calificacionHerramientas: 0, queMejorar: '' });
   const [enviandoEncuesta, setEnviandoEncuesta] = useState(false);
 
+  // Carga masiva
+  const [modoCarga, setModoCarga] = useState('manual'); // 'manual' | 'bulk'
+  const [textoBulk, setTextoBulk] = useState('');
+  const [enviandoBulk, setEnviandoBulk] = useState(false);
+  const [resultadoBulk, setResultadoBulk] = useState(null);
+
   const semanaKey = semanaActual.toISOString().split('T')[0];
 
   const cargarReservas = useCallback(async () => {
@@ -190,6 +196,9 @@ export default function ValleIA() {
     setAsistenciaReserva(reserva);
     setModalAsistencia(true);
     setFormAsist(ASIST_VACIO);
+    setModoCarga('manual');
+    setTextoBulk('');
+    setResultadoBulk(null);
     setLoadingAsist(true);
     try {
       const res = await api.get(`/valle-ia/asistencia/${reserva.id}`);
@@ -255,6 +264,44 @@ export default function ValleIA() {
       alert(err.data?.error || 'Error al enviar encuesta');
     } finally {
       setEnviandoEncuesta(false);
+    }
+  };
+
+  const subirBulk = async () => {
+    if (!textoBulk.trim()) return;
+    const lineas = textoBulk.trim().split('\n').filter((l) => l.trim());
+    const estudiantes = lineas.map((linea) => {
+      const partes = linea.split(',').map((p) => p.trim());
+      return {
+        nombreCompleto: partes[0] || '',
+        cedula:         partes[1] || '',
+        telefono:       partes[2] || 'N/A',
+        programa:       partes[3] || 'N/A',
+        semestre:       partes[4] || 'N/A',
+      };
+    }).filter((e) => e.nombreCompleto);
+
+    if (estudiantes.length === 0) {
+      alert('No se encontraron estudiantes válidos en el texto');
+      return;
+    }
+
+    setEnviandoBulk(true);
+    setResultadoBulk(null);
+    try {
+      const res = await api.post('/valle-ia/asistencia/bulk', {
+        reservaId: asistenciaReserva.id,
+        estudiantes,
+      });
+      setResultadoBulk(res);
+      setTextoBulk('');
+      // Recargar lista
+      const lista = await api.get(`/valle-ia/asistencia/${asistenciaReserva.id}`);
+      setAsistencias(Array.isArray(lista) ? lista : []);
+    } catch (err) {
+      alert(err.data?.error || 'Error al cargar estudiantes');
+    } finally {
+      setEnviandoBulk(false);
     }
   };
 
@@ -690,53 +737,114 @@ export default function ValleIA() {
               {/* Formulario para agregar estudiantes (gestores o dueño de la reserva) */}
               {puedeAgregar && (
                 <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
-                  <h4 className="text-sm font-semibold text-purple-800 mb-3 flex items-center gap-2">
-                    <UserPlus className="w-4 h-4" /> Registrar estudiante
-                  </h4>
-                  <form onSubmit={agregarEstudiante} className="space-y-3">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">Nombre completo *</label>
-                        <input type="text" className="input-field w-full text-sm" placeholder="Juan Pérez"
-                          value={formAsist.nombreCompleto} onChange={(e) => setFormAsist({ ...formAsist, nombreCompleto: e.target.value })} required />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">Número de cédula *</label>
-                        <input type="text" className="input-field w-full text-sm" placeholder="1234567890"
-                          value={formAsist.cedula} onChange={(e) => setFormAsist({ ...formAsist, cedula: e.target.value })} required />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">Teléfono *</label>
-                        <input type="text" className="input-field w-full text-sm" placeholder="3001234567"
-                          value={formAsist.telefono} onChange={(e) => setFormAsist({ ...formAsist, telefono: e.target.value })} required />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">Programa *</label>
-                        <input type="text" className="input-field w-full text-sm" placeholder="Ingeniería de Sistemas"
-                          value={formAsist.programa} onChange={(e) => setFormAsist({ ...formAsist, programa: e.target.value })} required />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">Semestre *</label>
-                        <input type="text" className="input-field w-full text-sm" placeholder="5to"
-                          value={formAsist.semestre} onChange={(e) => setFormAsist({ ...formAsist, semestre: e.target.value })} required />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">Profesor / Decano *</label>
-                        <input type="text" className="input-field w-full text-sm" placeholder="Nombre del profesor"
-                          value={formAsist.nombreProfesor} onChange={(e) => setFormAsist({ ...formAsist, nombreProfesor: e.target.value })} required />
-                      </div>
-                    </div>
+                  {/* Pestañas */}
+                  <div className="flex gap-1 mb-4 bg-purple-100 rounded-lg p-1">
                     <button
-                      type="submit"
-                      disabled={enviandoAsist}
-                      className="w-full sm:w-auto flex items-center justify-center gap-2 py-2 px-5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium transition-colors disabled:opacity-60"
+                      type="button"
+                      onClick={() => { setModoCarga('manual'); setResultadoBulk(null); }}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                        modoCarga === 'manual' ? 'bg-white text-purple-700 shadow-sm' : 'text-purple-600 hover:text-purple-800'
+                      }`}
                     >
-                      {enviandoAsist
-                        ? <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                        : <UserPlus className="w-4 h-4" />}
-                      Agregar a la lista
+                      <UserPlus className="w-3.5 h-3.5" /> Individual
                     </button>
-                  </form>
+                    <button
+                      type="button"
+                      onClick={() => { setModoCarga('bulk'); setResultadoBulk(null); }}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                        modoCarga === 'bulk' ? 'bg-white text-purple-700 shadow-sm' : 'text-purple-600 hover:text-purple-800'
+                      }`}
+                    >
+                      <Users className="w-3.5 h-3.5" /> Carga masiva
+                    </button>
+                  </div>
+
+                  {/* Modo individual */}
+                  {modoCarga === 'manual' && (
+                    <form onSubmit={agregarEstudiante} className="space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Nombre completo</label>
+                          <input type="text" className="input-field w-full text-sm" placeholder="Juan Pérez"
+                            value={formAsist.nombreCompleto} onChange={(e) => setFormAsist({ ...formAsist, nombreCompleto: e.target.value })} />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Número de cédula</label>
+                          <input type="text" className="input-field w-full text-sm" placeholder="1234567890"
+                            value={formAsist.cedula} onChange={(e) => setFormAsist({ ...formAsist, cedula: e.target.value })} />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Teléfono</label>
+                          <input type="text" className="input-field w-full text-sm" placeholder="3001234567"
+                            value={formAsist.telefono} onChange={(e) => setFormAsist({ ...formAsist, telefono: e.target.value })} />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Programa</label>
+                          <input type="text" className="input-field w-full text-sm" placeholder="Ingeniería de Sistemas"
+                            value={formAsist.programa} onChange={(e) => setFormAsist({ ...formAsist, programa: e.target.value })} />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Semestre</label>
+                          <input type="text" className="input-field w-full text-sm" placeholder="5to"
+                            value={formAsist.semestre} onChange={(e) => setFormAsist({ ...formAsist, semestre: e.target.value })} />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Profesor / Decano</label>
+                          <input type="text" className="input-field w-full text-sm" placeholder="Nombre del profesor"
+                            value={formAsist.nombreProfesor} onChange={(e) => setFormAsist({ ...formAsist, nombreProfesor: e.target.value })} />
+                        </div>
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={enviandoAsist}
+                        className="w-full sm:w-auto flex items-center justify-center gap-2 py-2 px-5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium transition-colors disabled:opacity-60"
+                      >
+                        {enviandoAsist
+                          ? <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                          : <UserPlus className="w-4 h-4" />}
+                        Agregar a la lista
+                      </button>
+                    </form>
+                  )}
+
+                  {/* Modo carga masiva */}
+                  {modoCarga === 'bulk' && (
+                    <div className="space-y-3">
+                      <div className="bg-white border border-purple-100 rounded-lg p-3 text-xs text-purple-700 space-y-1">
+                        <p className="font-semibold">Formato — una línea por estudiante:</p>
+                        <p className="font-mono text-purple-500">Nombre Completo, Cédula, Teléfono, Programa, Semestre</p>
+                        <p className="text-gray-400">Teléfono, Programa y Semestre son opcionales. El nombre del profesor se toma de la reserva.</p>
+                      </div>
+                      <textarea
+                        className="input-field w-full text-sm font-mono resize-y min-h-[140px]"
+                        placeholder={`Juan Pérez, 1234567890, 3001234567, Ingeniería de Sistemas, 5to\nMaría García, 0987654321, 3109876543, Administración, 3ro`}
+                        value={textoBulk}
+                        onChange={(e) => setTextoBulk(e.target.value)}
+                      />
+                      {resultadoBulk && (
+                        <div className={`rounded-xl p-3 text-xs space-y-1 ${resultadoBulk.insertados > 0 ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-amber-50 border border-amber-200 text-amber-800'}`}>
+                          <p className="font-semibold">✅ {resultadoBulk.insertados} estudiante(s) agregado(s)</p>
+                          {resultadoBulk.omitidos.length > 0 && (
+                            <p>⚠️ Ya existían: {resultadoBulk.omitidos.join(', ')}</p>
+                          )}
+                          {resultadoBulk.errores.length > 0 && (
+                            <p>❌ Errores: {resultadoBulk.errores.join(', ')}</p>
+                          )}
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={subirBulk}
+                        disabled={enviandoBulk || !textoBulk.trim()}
+                        className="w-full flex items-center justify-center gap-2 py-2 px-5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium transition-colors disabled:opacity-60"
+                      >
+                        {enviandoBulk
+                          ? <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                          : <Users className="w-4 h-4" />}
+                        Subir lista completa
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 

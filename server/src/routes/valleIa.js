@@ -24,12 +24,12 @@ const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves'];
 
 const asistenciaSchema = z.object({
   reservaId: z.number().int(),
-  nombreCompleto: z.string().min(1, 'Nombre completo requerido'),
-  cedula: z.string().min(1, 'Cédula requerida'),
-  telefono: z.string().min(1, 'Teléfono requerido'),
-  programa: z.string().min(1, 'Programa requerido'),
-  semestre: z.string().min(1, 'Semestre requerido'),
-  nombreProfesor: z.string().min(1, 'Nombre del profesor requerido'),
+  nombreCompleto: z.string().default(''),
+  cedula: z.string().default(''),
+  telefono: z.string().default('N/A'),
+  programa: z.string().default('N/A'),
+  semestre: z.string().default('N/A'),
+  nombreProfesor: z.string().default(''),
 });
 
 const encuestaSchema = z.object({
@@ -214,6 +214,63 @@ router.post(
         data: { reservaId, nombreCompleto, cedula, telefono, programa, semestre, nombreProfesor },
       });
       res.status(201).json(asistencia);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// ─── POST /api/valle-ia/asistencia/bulk ────────────────
+// Carga masiva de estudiantes desde texto
+router.post(
+  '/asistencia/bulk',
+  authenticateToken,
+  async (req, res, next) => {
+    try {
+      const { reservaId, estudiantes } = req.body;
+
+      if (!reservaId || !Array.isArray(estudiantes) || estudiantes.length === 0) {
+        return res.status(400).json({ error: 'reservaId y lista de estudiantes requeridos' });
+      }
+
+      const reserva = await prisma.reservaValleIA.findUnique({ where: { id: reservaId } });
+      if (!reserva) return res.status(404).json({ error: 'Reserva no encontrada' });
+      if (reserva.estado !== 'APROBADA') return res.status(400).json({ error: 'La reserva debe estar aprobada' });
+
+      const esGestor = ['ADMIN', 'DIRECTOR', 'EQUIPO'].includes(req.user.rol.toUpperCase());
+      if (!esGestor && reserva.solicitanteId !== req.user.id) {
+        return res.status(403).json({ error: 'No tienes permisos para agregar estudiantes a esta reserva' });
+      }
+
+      const nombreProfesor = reserva.formulario?.nombre_docente || '';
+      const resultados = { insertados: 0, omitidos: [], errores: [] };
+
+      for (const est of estudiantes) {
+        const { nombreCompleto, cedula, telefono, programa, semestre } = est;
+        if (!nombreCompleto || !cedula) {
+          resultados.errores.push(`Fila incompleta: ${nombreCompleto || '(sin nombre)'}`);
+          continue;
+        }
+        const existe = await prisma.asistenciaValle.findFirst({ where: { reservaId, cedula } });
+        if (existe) {
+          resultados.omitidos.push(nombreCompleto);
+          continue;
+        }
+        await prisma.asistenciaValle.create({
+          data: {
+            reservaId,
+            nombreCompleto,
+            cedula,
+            telefono: telefono || 'N/A',
+            programa: programa || 'N/A',
+            semestre: semestre || 'N/A',
+            nombreProfesor,
+          },
+        });
+        resultados.insertados++;
+      }
+
+      res.json(resultados);
     } catch (error) {
       next(error);
     }
@@ -416,6 +473,106 @@ router.get(
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
       res.setHeader('Content-Disposition', 'attachment; filename="asistencias_valle.csv"');
       res.send(csv);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// ─── GET /api/valle-ia/estadisticas ────────────────────
+// Métricas agregadas del Valle del Software para Seguimiento
+router.get(
+  '/estadisticas',
+  authenticateToken,
+  authorizeRoles('ADMIN', 'DIRECTOR', 'EQUIPO'),
+  async (req, res, next) => {
+    try {
+      const reservas = await prisma.reservaValleIA.findMany({
+        include: {
+          solicitante: { select: { nombre: true, cargo: true } },
+          asistencias: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      const semanaActual = (() => {
+        const hoy = new Date();
+        const dia = hoy.getDay();
+        const diff = hoy.getDate() - dia + (dia === 0 ? -6 : 1);
+        const lunes = new Date(hoy.setDate(diff));
+        return lunes.toISOString().split('T')[0];
+      })();
+
+      const aprobadas = reservas.filter(r => r.estado === 'APROBADA');
+
+      // Reservas semana actual
+      const reservasSemana = reservas.filter(r => r.semana === semanaActual).length;
+      const reservasSemanaAprobadas = aprobadas.filter(r => r.semana === semanaActual).length;
+
+      // Total estudiantes registrados (en reservas aprobadas)
+      const totalEstudiantes = aprobadas.reduce((acc, r) => acc + r.asistencias.length, 0);
+      const totalConfirmados = aprobadas.reduce((acc, r) => acc + r.asistencias.filter(a => a.confirmado).length, 0);
+
+      // Horas más usadas
+      const horasMap = {};
+      aprobadas.forEach(r => {
+        horasMap[r.hora] = (horasMap[r.hora] || 0) + 1;
+      });
+      const horasMasUsadas = Object.entries(horasMap)
+        .map(([hora, count]) => ({ hora, count }))
+        .sort((a, b) => b.count - a.count);
+
+      // Docentes: reservas + estudiantes
+      const docentesMap = {};
+      aprobadas.forEach(r => {
+        const nombre = r.formulario?.nombre_docente || r.solicitante?.nombre || 'Sin nombre';
+        if (!docentesMap[nombre]) docentesMap[nombre] = { reservas: 0, estudiantes: 0, horas: new Set() };
+        docentesMap[nombre].reservas++;
+        docentesMap[nombre].estudiantes += r.asistencias.length;
+        docentesMap[nombre].horas.add(r.hora);
+      });
+      const docentesTop = Object.entries(docentesMap)
+        .map(([nombre, d]) => ({ nombre, reservas: d.reservas, estudiantes: d.estudiantes, franjas: d.horas.size }))
+        .sort((a, b) => b.reservas - a.reservas);
+
+      // Programas más frecuentes (desde asistencias)
+      const programasMap = {};
+      aprobadas.forEach(r => {
+        r.asistencias.forEach(a => {
+          if (!a.programa || a.programa === 'N/A') return;
+          programasMap[a.programa] = (programasMap[a.programa] || 0) + 1;
+        });
+      });
+      const programasTop = Object.entries(programasMap)
+        .map(([programa, estudiantes]) => ({ programa, estudiantes }))
+        .sort((a, b) => b.estudiantes - a.estudiantes)
+        .slice(0, 10);
+
+      // Reservas por semana (últimas 12 semanas)
+      const semanasMap = {};
+      reservas.forEach(r => {
+        if (!r.semana) return;
+        if (!semanasMap[r.semana]) semanasMap[r.semana] = { total: 0, aprobadas: 0 };
+        semanasMap[r.semana].total++;
+        if (r.estado === 'APROBADA') semanasMap[r.semana].aprobadas++;
+      });
+      const reservasPorSemana = Object.entries(semanasMap)
+        .map(([semana, d]) => ({ semana: semana.slice(5), ...d }))
+        .sort((a, b) => a.semana > b.semana ? 1 : -1)
+        .slice(-12);
+
+      res.json({
+        totalReservas: reservas.length,
+        reservasAprobadas: aprobadas.length,
+        reservasSemana,
+        reservasSemanaAprobadas,
+        totalEstudiantes,
+        totalConfirmados,
+        horasMasUsadas,
+        docentesTop,
+        programasTop,
+        reservasPorSemana,
+      });
     } catch (error) {
       next(error);
     }

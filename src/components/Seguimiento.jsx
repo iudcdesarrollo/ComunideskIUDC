@@ -3,7 +3,8 @@ import { api } from '../services/api';
 import {
   BarChart3, FileText, Clock, CheckCircle2, XCircle,
   TrendingUp, Users, AlertTriangle, Target, Activity,
-  Filter, ChevronUp, ChevronDown,
+  Filter, ChevronUp, ChevronDown, Brain, GraduationCap,
+  CalendarDays, UserCheck,
 } from 'lucide-react';
 import {
   ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend,
@@ -15,16 +16,23 @@ import {
 const COLORES_ESTADO = { pendiente: '#f59e0b', en_proceso: '#3b82f6', completada: '#10b981', rechazada: '#ef4444' };
 const PALETA = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#ef4444', '#06b6d4', '#f97316'];
 
+const PALETA_VALLE = ['#7c3aed', '#4f46e5', '#0891b2', '#059669', '#d97706', '#dc2626', '#7c3aed', '#db2777'];
+
 export default function Seguimiento() {
   const [solicitudes, setSolicitudes] = useState([]);
+  const [valleStats, setValleStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [tablaFiltro, setTablaFiltro] = useState('todos');
   const [tablaOrden, setTablaOrden] = useState({ campo: 'fecha', dir: 'desc' });
 
   const fetchData = useCallback(async () => {
     try {
-      const solRes = await api.get('/solicitudes?limit=1000');
+      const [solRes, valleRes] = await Promise.all([
+        api.get('/solicitudes?limit=1000'),
+        api.get('/valle-ia/estadisticas').catch(() => null),
+      ]);
       setSolicitudes(Array.isArray(solRes) ? solRes : solRes.data || []);
+      if (valleRes) setValleStats(valleRes);
     } catch (error) {
       console.error('Error fetching solicitudes:', error);
     } finally {
@@ -519,6 +527,167 @@ export default function Seguimiento() {
           </table>
         </div>
       </div>
+
+      {/* ══════════════════════════════════════════════ */}
+      {/* ── SECCIÓN VALLE DEL SOFTWARE · IA ─────────── */}
+      {/* ══════════════════════════════════════════════ */}
+      {valleStats && (
+        <>
+          {/* Separador */}
+          <div className="flex items-center gap-3 pt-2">
+            <div className="w-9 h-9 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-xl flex items-center justify-center shrink-0">
+              <Brain className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-gray-900">Valle del Software · IA</h2>
+              <p className="text-xs text-gray-400">Métricas de uso del espacio</p>
+            </div>
+          </div>
+
+          {/* KPIs Valle */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {[
+              { label: 'Total reservas',    value: valleStats.totalReservas,          from: '#f5f3ff', to: '#ddd6fe', num: '#5b21b6', icon: CalendarDays },
+              { label: 'Aprobadas',         value: valleStats.reservasAprobadas,      from: '#ecfdf5', to: '#a7f3d0', num: '#047857', icon: CheckCircle2 },
+              { label: 'Esta semana',       value: valleStats.reservasSemana,         from: '#eff6ff', to: '#bfdbfe', num: '#1d4ed8', icon: Clock },
+              { label: 'Confirmadas hoy',   value: valleStats.reservasSemanaAprobadas,from: '#fff7ed', to: '#fed7aa', num: '#c2410c', icon: UserCheck },
+              { label: 'Estudiantes reg.',  value: valleStats.totalEstudiantes,       from: '#fdf4ff', to: '#e9d5ff', num: '#7e22ce', icon: GraduationCap },
+              { label: 'Asistencias conf.', value: valleStats.totalConfirmados,       from: '#ecfdf5', to: '#a7f3d0', num: '#047857', icon: Users },
+            ].map(({ label, value, from, to, num, icon: Icon }) => (
+              <div key={label} style={{ background: `linear-gradient(135deg, ${from}, ${to})` }} className="rounded-2xl p-3.5">
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: num }}>{label}</p>
+                  <Icon className="w-4 h-4 opacity-50" style={{ color: num }} />
+                </div>
+                <p className="text-2xl font-black" style={{ color: num }}>{value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Fila: Horas más usadas + Reservas por semana */}
+          <div className="grid md:grid-cols-2 gap-4">
+
+            {/* Horas más usadas */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <h3 className="font-semibold text-gray-800 text-sm mb-4 flex items-center gap-2">
+                <Clock className="w-4 h-4 text-purple-500" /> Franjas horarias más usadas
+              </h3>
+              {valleStats.horasMasUsadas.length === 0 ? (
+                <div className="h-44 flex items-center justify-center text-sm text-gray-400">Sin datos</div>
+              ) : (
+                <ResponsiveContainer width="100%" height={180}>
+                  <BarChart data={valleStats.horasMasUsadas} margin={{ left: -8, right: 8, top: 4, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                    <XAxis dataKey="hora" tick={{ fontSize: 10, fill: '#6b7280' }} axisLine={false} tickLine={false}
+                      tickFormatter={v => v.replace(' a.m.', '').replace(' p.m.', '')} />
+                    <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                    <Tooltip {...tt} formatter={(v) => [v, 'Reservas']} />
+                    <Bar dataKey="count" name="Reservas" radius={[6, 6, 0, 0]} fill="#7c3aed" />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+
+            {/* Tendencia por semana */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <h3 className="font-semibold text-gray-800 text-sm mb-4 flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-indigo-500" /> Reservas por semana
+              </h3>
+              {valleStats.reservasPorSemana.length === 0 ? (
+                <div className="h-44 flex items-center justify-center text-sm text-gray-400">Sin datos</div>
+              ) : (
+                <ResponsiveContainer width="100%" height={180}>
+                  <AreaChart data={valleStats.reservasPorSemana} margin={{ left: -14, right: 4, top: 4, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="gVT" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#7c3aed" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#7c3aed" stopOpacity={0.02} />
+                      </linearGradient>
+                      <linearGradient id="gVA" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0.02} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+                    <XAxis dataKey="semana" tick={{ fontSize: 9, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                    <Tooltip {...tt} />
+                    <Legend iconType="circle" iconSize={7} wrapperStyle={{ fontSize: '11px' }} />
+                    <Area type="monotone" dataKey="total"    name="Solicitadas" stroke="#7c3aed" strokeWidth={2} fill="url(#gVT)" dot={false} />
+                    <Area type="monotone" dataKey="aprobadas" name="Aprobadas"  stroke="#10b981" strokeWidth={2} fill="url(#gVA)" dot={false} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </div>
+
+          {/* Fila: Top docentes + Top programas */}
+          <div className="grid md:grid-cols-2 gap-4">
+
+            {/* Top docentes */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <h3 className="font-semibold text-gray-800 text-sm mb-4 flex items-center gap-2">
+                <Users className="w-4 h-4 text-purple-500" /> Docentes — reservas y estudiantes
+              </h3>
+              {valleStats.docentesTop.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-8">Sin datos</p>
+              ) : (
+                <div className="space-y-2.5">
+                  {valleStats.docentesTop.slice(0, 8).map((d, i) => (
+                    <div key={d.nombre} className="flex items-center gap-3">
+                      <span className="w-5 text-[10px] font-bold text-gray-400 shrink-0 text-right">{i + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className="text-xs font-semibold text-gray-800 truncate">{d.nombre}</span>
+                          <div className="flex items-center gap-2 shrink-0 ml-2">
+                            <span className="text-[10px] bg-purple-100 text-purple-700 font-bold px-1.5 py-0.5 rounded">
+                              {d.reservas} res.
+                            </span>
+                            <span className="text-[10px] bg-indigo-100 text-indigo-700 font-bold px-1.5 py-0.5 rounded">
+                              {d.estudiantes} est.
+                            </span>
+                          </div>
+                        </div>
+                        <div className="w-full bg-gray-100 rounded-full h-1.5">
+                          <div className="h-1.5 rounded-full bg-gradient-to-r from-purple-500 to-indigo-500 transition-all duration-700"
+                            style={{ width: `${valleStats.docentesTop[0].reservas > 0 ? (d.reservas / valleStats.docentesTop[0].reservas) * 100 : 0}%` }} />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Top programas */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <h3 className="font-semibold text-gray-800 text-sm mb-4 flex items-center gap-2">
+                <GraduationCap className="w-4 h-4 text-indigo-500" /> Programas que más usan el Valle
+              </h3>
+              {valleStats.programasTop.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-8">Sin datos de asistencia aún</p>
+              ) : (
+                <>
+                  <ResponsiveContainer width="100%" height={180}>
+                    <BarChart data={valleStats.programasTop} layout="vertical" margin={{ left: 4, right: 24, top: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f3f4f6" />
+                      <XAxis type="number" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+                      <YAxis type="category" dataKey="programa" tick={{ fontSize: 10, fill: '#6b7280' }} width={100} axisLine={false} tickLine={false}
+                        tickFormatter={v => v.length > 16 ? v.slice(0, 14) + '…' : v} />
+                      <Tooltip {...tt} formatter={(v) => [v, 'Estudiantes']} />
+                      <Bar dataKey="estudiantes" name="Estudiantes" radius={[0, 6, 6, 0]}>
+                        {valleStats.programasTop.map((_, i) => (
+                          <Cell key={i} fill={PALETA_VALLE[i % PALETA_VALLE.length]} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </>
+              )}
+            </div>
+          </div>
+        </>
+      )}
 
     </div>
   );
