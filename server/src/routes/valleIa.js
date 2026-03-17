@@ -185,10 +185,10 @@ router.patch(
 
 // ─── POST /api/valle-ia/asistencia ─────────────────────
 // Registrar estudiante en la lista de asistencia de una reserva
+// Admin/Director/Equipo o el solicitante dueño de la reserva
 router.post(
   '/asistencia',
   authenticateToken,
-  authorizeRoles('ADMIN', 'DIRECTOR', 'EQUIPO'),
   validate(asistenciaSchema),
   async (req, res, next) => {
     try {
@@ -197,6 +197,12 @@ router.post(
       const reserva = await prisma.reservaValleIA.findUnique({ where: { id: reservaId } });
       if (!reserva) return res.status(404).json({ error: 'Reserva no encontrada' });
       if (reserva.estado !== 'APROBADA') return res.status(400).json({ error: 'La reserva debe estar aprobada' });
+
+      // Verificar permisos: admin/director/equipo o dueño de la reserva
+      const esGestor = ['ADMIN', 'DIRECTOR', 'EQUIPO'].includes(req.user.rol.toUpperCase());
+      if (!esGestor && reserva.solicitanteId !== req.user.id) {
+        return res.status(403).json({ error: 'No tienes permisos para agregar estudiantes a esta reserva' });
+      }
 
       // Verificar que no esté duplicada la cédula en esa reserva
       const existe = await prisma.asistenciaValle.findFirst({

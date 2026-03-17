@@ -72,7 +72,7 @@ function Estrellas({ value, onChange, disabled }) {
 }
 
 export default function ValleIA() {
-  const { puedeGestionarSolicitudes } = useAuth();
+  const { usuario, puedeGestionarSolicitudes } = useAuth();
   const [semanaActual, setSemanaActual] = useState(() => obtenerLunesDeSemana(new Date()));
   const [reservas, setReservas] = useState([]);
   const [pendientes, setPendientes] = useState([]);
@@ -652,7 +652,11 @@ export default function ValleIA() {
       {/* ══════════════════════════════════════════════════ */}
       {/* Modal: Lista de Asistencia                        */}
       {/* ══════════════════════════════════════════════════ */}
-      {modalAsistencia && asistenciaReserva && (
+      {modalAsistencia && asistenciaReserva && (() => {
+        const esDueno = asistenciaReserva.solicitanteId === usuario?.id;
+        const esGestor = puedeGestionarSolicitudes();
+        const puedeAgregar = esGestor || esDueno;
+        return (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
             {/* Header */}
@@ -667,7 +671,7 @@ export default function ValleIA() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  {puedeGestionarSolicitudes() && asistencias.length > 0 && (
+                  {esGestor && asistencias.length > 0 && (
                     <button
                       onClick={() => descargarCSV(asistenciaReserva.id)}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-sm font-medium transition-colors"
@@ -683,8 +687,8 @@ export default function ValleIA() {
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-5">
-              {/* Formulario para agregar estudiantes (solo gestores) */}
-              {puedeGestionarSolicitudes() && (
+              {/* Formulario para agregar estudiantes (gestores o dueño de la reserva) */}
+              {puedeAgregar && (
                 <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
                   <h4 className="text-sm font-semibold text-purple-800 mb-3 flex items-center gap-2">
                     <UserPlus className="w-4 h-4" /> Registrar estudiante
@@ -838,7 +842,8 @@ export default function ValleIA() {
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* ══════════════════════════════════════════════════ */}
       {/* Modal: Encuesta de calificación                   */}
