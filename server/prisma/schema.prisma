@@ -39,6 +39,21 @@ enum EstadoUrgente {
   RESUELTO
 }
 
+enum TipoPQRS {
+  PETICION
+  QUEJA
+  RECLAMO
+  SUGERENCIA
+  FELICITACION
+}
+
+enum EstadoPQRS {
+  PENDIENTE
+  EN_REVISION
+  RESUELTA
+  CERRADA
+}
+
 model User {
   id                    Int              @id @default(autoincrement())
   nombre                String
@@ -53,6 +68,7 @@ model User {
   reservasRadio         ReservaRadio[]
   reservasValleIA       ReservaValleIA[]
   urgentes              Urgente[]
+  pqrs                  PQRS[]
   refreshTokens         RefreshToken[]
   notificaciones        Notificacion[]
 }
@@ -102,15 +118,34 @@ model ReservaRadio {
 }
 
 model ReservaValleIA {
-  id             Int           @id @default(autoincrement())
+  id             Int                @id @default(autoincrement())
   dia            String
   hora           String
   semana         String
   estado         EstadoReserva
   solicitanteId  Int
   formulario     Json
-  createdAt      DateTime      @default(now())
-  solicitante    User          @relation(fields: [solicitanteId], references: [id])
+  createdAt      DateTime           @default(now())
+  solicitante    User               @relation(fields: [solicitanteId], references: [id])
+  asistencias    AsistenciaValle[]
+}
+
+model AsistenciaValle {
+  id                    Int            @id @default(autoincrement())
+  reservaId             Int
+  nombreCompleto        String
+  cedula                String
+  telefono              String
+  programa              String
+  semestre              String
+  nombreProfesor        String
+  confirmado            Boolean        @default(false)
+  calificacionClase     Int?
+  calificacionHerramientas Int?
+  queMejorar            String?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  reserva               ReservaValleIA @relation(fields: [reservaId], references: [id])
 }
 
 model Urgente {
@@ -138,6 +173,19 @@ model ProgramaFijo {
   programa  String
   dia       String
   hora      String
+}
+
+model PQRS {
+  id             Int         @id @default(autoincrement())
+  tipo           TipoPQRS
+  titulo         String
+  mensaje        String
+  estado         EstadoPQRS  @default(PENDIENTE)
+  respuesta      String?
+  solicitanteId  Int
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  solicitante    User        @relation(fields: [solicitanteId], references: [id])
 }
 
 model Notificacion {

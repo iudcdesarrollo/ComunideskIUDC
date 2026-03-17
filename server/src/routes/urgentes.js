@@ -50,9 +50,11 @@ router.post('/', validate(createSchema), async (req, res, next) => {
         solicitante: { select: { id: true, nombre: true, cargo: true } },
       },
     });
-    // Notify all EQUIPO users about new urgente
-    const equipoUsers = await prisma.user.findMany({ where: { rol: 'EQUIPO' } });
-    for (const user of equipoUsers) {
+    // Notify all ADMIN, DIRECTOR and EQUIPO users (except the creator)
+    const destinatarios = await prisma.user.findMany({
+      where: { rol: { in: ['ADMIN', 'DIRECTOR', 'EQUIPO'] }, id: { not: req.user.id } },
+    });
+    for (const user of destinatarios) {
       await crearNotificacion({
         userId: user.id,
         tipo: 'urgente_nuevo',
@@ -80,6 +82,22 @@ router.patch('/:id/estado', validate(estadoSchema), async (req, res, next) => {
         solicitante: { select: { id: true, nombre: true, cargo: true } },
       },
     });
+
+    // Notificar a admin/director/equipo del cambio de estado (excepto quien lo cambió)
+    const estadoLabel = { PENDIENTE: 'Pendiente', EN_PROCESO: 'En proceso', RESUELTO: 'Resuelto' };
+    const destinatarios = await prisma.user.findMany({
+      where: { rol: { in: ['ADMIN', 'DIRECTOR', 'EQUIPO'] }, id: { not: req.user.id } },
+    });
+    for (const user of destinatarios) {
+      await crearNotificacion({
+        userId: user.id,
+        tipo: 'urgente_estado',
+        titulo: `Urgente: ${estadoLabel[estado]}`,
+        mensaje: `"${urgente.titulo}" cambió a estado: ${estadoLabel[estado]}`,
+        referenceId: String(urgente.id),
+      });
+    }
+
     res.json(urgente);
   } catch (error) {
     next(error);

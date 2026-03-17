@@ -22,6 +22,22 @@ const FRANJAS = [
 
 const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves'];
 
+const asistenciaSchema = z.object({
+  reservaId: z.number().int(),
+  nombreCompleto: z.string().min(1, 'Nombre completo requerido'),
+  cedula: z.string().min(1, 'Cédula requerida'),
+  telefono: z.string().min(1, 'Teléfono requerido'),
+  programa: z.string().min(1, 'Programa requerido'),
+  semestre: z.string().min(1, 'Semestre requerido'),
+  nombreProfesor: z.string().min(1, 'Nombre del profesor requerido'),
+});
+
+const encuestaSchema = z.object({
+  calificacionClase: z.number().int().min(1).max(5),
+  calificacionHerramientas: z.number().int().min(1).max(5),
+  queMejorar: z.string().max(500).optional(),
+});
+
 const reservaSchema = z.object({
   dia:    z.string().min(1),
   hora:   z.string().min(1),
@@ -157,6 +173,243 @@ router.patch(
       }
 
       res.json(reserva);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// ════════════════════════════════════════════════════════
+//  ASISTENCIA
+// ════════════════════════════════════════════════════════
+
+// ─── POST /api/valle-ia/asistencia ─────────────────────
+// Registrar estudiante en la lista de asistencia de una reserva
+router.post(
+  '/asistencia',
+  authenticateToken,
+  authorizeRoles('ADMIN', 'DIRECTOR', 'EQUIPO'),
+  validate(asistenciaSchema),
+  async (req, res, next) => {
+    try {
+      const { reservaId, nombreCompleto, cedula, telefono, programa, semestre, nombreProfesor } = req.body;
+
+      const reserva = await prisma.reservaValleIA.findUnique({ where: { id: reservaId } });
+      if (!reserva) return res.status(404).json({ error: 'Reserva no encontrada' });
+      if (reserva.estado !== 'APROBADA') return res.status(400).json({ error: 'La reserva debe estar aprobada' });
+
+      // Verificar que no esté duplicada la cédula en esa reserva
+      const existe = await prisma.asistenciaValle.findFirst({
+        where: { reservaId, cedula },
+      });
+      if (existe) return res.status(409).json({ error: 'Este estudiante ya está registrado en esta reserva' });
+
+      const asistencia = await prisma.asistenciaValle.create({
+        data: { reservaId, nombreCompleto, cedula, telefono, programa, semestre, nombreProfesor },
+      });
+      res.status(201).json(asistencia);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// ─── GET /api/valle-ia/asistencia/:reservaId ───────────
+// Obtener lista de asistencia de una reserva
+router.get('/asistencia/:reservaId', authenticateToken, async (req, res, next) => {
+  try {
+    const reservaId = parseInt(req.params.reservaId);
+    const asistencias = await prisma.asistenciaValle.findMany({
+      where: { reservaId },
+      orderBy: { createdAt: 'asc' },
+    });
+    res.json(asistencias);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ─── PATCH /api/valle-ia/asistencia/:id/confirmar ──────
+// El estudiante confirma su asistencia
+router.patch('/asistencia/:id/confirmar', authenticateToken, async (req, res, next) => {
+  try {
+    const asistencia = await prisma.asistenciaValle.update({
+      where: { id: parseInt(req.params.id) },
+      data: { confirmado: true },
+    });
+    res.json(asistencia);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ─── PATCH /api/valle-ia/asistencia/:id/encuesta ───────
+// El estudiante llena la encuesta de calificación
+router.patch(
+  '/asistencia/:id/encuesta',
+  authenticateToken,
+  validate(encuestaSchema),
+  async (req, res, next) => {
+    try {
+      const { calificacionClase, calificacionHerramientas, queMejorar } = req.body;
+      const asistencia = await prisma.asistenciaValle.update({
+        where: { id: parseInt(req.params.id) },
+        data: { calificacionClase, calificacionHerramientas, queMejorar },
+      });
+      res.json(asistencia);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// ─── DELETE /api/valle-ia/asistencia/:id ───────────────
+router.delete(
+  '/asistencia/:id',
+  authenticateToken,
+  authorizeRoles('ADMIN', 'DIRECTOR', 'EQUIPO'),
+  async (req, res, next) => {
+    try {
+      await prisma.asistenciaValle.delete({ where: { id: parseInt(req.params.id) } });
+      res.json({ ok: true });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// ─── GET /api/valle-ia/asistencia-csv/:reservaId ───────
+// Exportar CSV de asistencia de una reserva
+router.get(
+  '/asistencia-csv/:reservaId',
+  authenticateToken,
+  authorizeRoles('ADMIN', 'DIRECTOR', 'EQUIPO'),
+  async (req, res, next) => {
+    try {
+      const reservaId = parseInt(req.params.reservaId);
+      const reserva = await prisma.reservaValleIA.findUnique({
+        where: { id: reservaId },
+        include: { solicitante: { select: { nombre: true } } },
+      });
+      if (!reserva) return res.status(404).json({ error: 'Reserva no encontrada' });
+
+      const asistencias = await prisma.asistenciaValle.findMany({
+        where: { reservaId },
+        orderBy: { createdAt: 'asc' },
+      });
+
+      const BOM = '\uFEFF';
+      const headers = [
+        'Nombre Completo',
+        'Numero de Cedula',
+        'Numero de Telefono',
+        'Programa',
+        'Semestre',
+        'Nombre del Profesor/Decano',
+        'Asistencia Confirmada',
+        'Calificacion de la Clase (1-5)',
+        'Calificacion de las Herramientas (1-5)',
+        'Que Podria Mejorar',
+      ];
+
+      const escapeCsv = (val) => {
+        if (val == null) return '';
+        const str = String(val);
+        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      };
+
+      const rows = asistencias.map((a) => [
+        a.nombreCompleto,
+        a.cedula,
+        a.telefono,
+        a.programa,
+        a.semestre,
+        a.nombreProfesor,
+        a.confirmado ? 'Si' : 'No',
+        a.calificacionClase ?? '',
+        a.calificacionHerramientas ?? '',
+        a.queMejorar ?? '',
+      ].map(escapeCsv).join(','));
+
+      const csv = BOM + [headers.join(','), ...rows].join('\n');
+      const filename = `asistencia_valle_${reserva.dia}_${reserva.hora.replace(/[^a-zA-Z0-9]/g, '')}.csv`;
+
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.send(csv);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// ─── GET /api/valle-ia/asistencia-csv-all ──────────────
+// Exportar CSV de TODAS las asistencias
+router.get(
+  '/asistencia-csv-all',
+  authenticateToken,
+  authorizeRoles('ADMIN', 'DIRECTOR', 'EQUIPO'),
+  async (req, res, next) => {
+    try {
+      const { semana } = req.query;
+      const where = semana ? { reserva: { semana } } : {};
+
+      const asistencias = await prisma.asistenciaValle.findMany({
+        where,
+        include: { reserva: { select: { dia: true, hora: true, semana: true } } },
+        orderBy: { createdAt: 'asc' },
+      });
+
+      const BOM = '\uFEFF';
+      const headers = [
+        'Fecha',
+        'Hora',
+        'Semana',
+        'Nombre Completo',
+        'Numero de Cedula',
+        'Numero de Telefono',
+        'Programa',
+        'Semestre',
+        'Nombre del Profesor/Decano',
+        'Asistencia Confirmada',
+        'Calificacion de la Clase (1-5)',
+        'Calificacion de las Herramientas (1-5)',
+        'Que Podria Mejorar',
+      ];
+
+      const escapeCsv = (val) => {
+        if (val == null) return '';
+        const str = String(val);
+        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      };
+
+      const rows = asistencias.map((a) => [
+        a.reserva.dia,
+        a.reserva.hora,
+        a.reserva.semana,
+        a.nombreCompleto,
+        a.cedula,
+        a.telefono,
+        a.programa,
+        a.semestre,
+        a.nombreProfesor,
+        a.confirmado ? 'Si' : 'No',
+        a.calificacionClase ?? '',
+        a.calificacionHerramientas ?? '',
+        a.queMejorar ?? '',
+      ].map(escapeCsv).join(','));
+
+      const csv = BOM + [headers.join(','), ...rows].join('\n');
+
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', 'attachment; filename="asistencias_valle.csv"');
+      res.send(csv);
     } catch (error) {
       next(error);
     }

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, Check, CheckCheck, Trash2, X, Brain, Radio as RadioIcon, AlertTriangle, FileText } from 'lucide-react';
+import { Bell, Check, CheckCheck, Trash2, X, Brain, Radio as RadioIcon, AlertTriangle, FileText, MessageSquarePlus } from 'lucide-react';
 import api from '../services/api.js';
 
 const TIPO_RUTA = {
@@ -9,8 +9,11 @@ const TIPO_RUTA = {
   radio_aprobada:     ()   => `/radio`,
   radio_rechazada:    ()   => `/radio`,
   urgente_nuevo:      ()   => `/urgente`,
+  urgente_estado:     ()   => `/urgente`,
   valle_ia_aprobada:  (id) => `/valle-ia?reserva=${id}`,
   valle_ia_rechazada: (id) => `/valle-ia?reserva=${id}`,
+  pqrs_nueva:         ()   => `/pqrs`,
+  pqrs_respondida:    ()   => `/pqrs`,
 };
 
 const TIPO_COLORES = {
@@ -19,8 +22,11 @@ const TIPO_COLORES = {
   radio_aprobada:     'bg-emerald-500',
   radio_rechazada:    'bg-red-500',
   urgente_nuevo:      'bg-amber-500',
+  urgente_estado:     'bg-orange-500',
   valle_ia_aprobada:  'bg-purple-600',
   valle_ia_rechazada: 'bg-rose-500',
+  pqrs_nueva:         'bg-indigo-500',
+  pqrs_respondida:    'bg-teal-500',
 };
 
 const TIPO_ICONOS = {
@@ -29,8 +35,11 @@ const TIPO_ICONOS = {
   radio_aprobada:     RadioIcon,
   radio_rechazada:    RadioIcon,
   urgente_nuevo:      AlertTriangle,
+  urgente_estado:     AlertTriangle,
   solicitud_estado:   FileText,
   solicitud_asignada: FileText,
+  pqrs_nueva:         MessageSquarePlus,
+  pqrs_respondida:    MessageSquarePlus,
 };
 
 function tiempoRelativo(fecha) {

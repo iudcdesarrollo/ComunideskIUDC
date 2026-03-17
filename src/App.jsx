@@ -11,6 +11,7 @@ import Seguimiento from './components/Seguimiento';
 import Exportar from './components/Exportar';
 import GestionUsuarios from './components/GestionUsuarios';
 import ValleIA from './components/ValleIA';
+import PQRS from './components/PQRS';
 
 function RutaProtegida({ children, roles }) {
   const { usuario, cargando } = useAuth();
@@ -75,6 +76,14 @@ function AppRoutes() {
         <Route path="mis-solicitudes" element={<MisSolicitudes />} />
         <Route path="radio" element={<ParrillaRadio />} />
         <Route path="valle-ia" element={<ValleIA />} />
+        <Route
+          path="pqrs"
+          element={
+            <RutaProtegida roles={['solicitante', 'admin', 'director']}>
+              <PQRS />
+            </RutaProtegida>
+          }
+        />
         <Route
           path="urgente"
           element={

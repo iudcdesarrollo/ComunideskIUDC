@@ -10,6 +10,7 @@ import {
   Download,
   Users,
   Brain,
+  MessageSquarePlus,
   X,
 } from 'lucide-react';
 
@@ -23,6 +24,7 @@ const iconMap = {
   BarChart3,
   Download,
   Users,
+  MessageSquarePlus,
 };
 
 export default function Sidebar({ abierto, cerrar }) {
@@ -58,6 +60,12 @@ export default function Sidebar({ abierto, cerrar }) {
       label: 'Valle del Software · IA',
       icon: 'Brain',
       visible: true,
+    },
+    {
+      to: '/pqrs',
+      label: 'PQRS',
+      icon: 'MessageSquarePlus',
+      visible: usuario?.rol === 'solicitante' || usuario?.rol === 'admin' || usuario?.rol === 'director',
     },
     {
       to: '/urgente',

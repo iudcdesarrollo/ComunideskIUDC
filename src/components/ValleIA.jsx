@@ -4,6 +4,7 @@ import { api } from '../services/api';
 import {
   Brain, CheckCircle2, Clock, X, Send, Check, XCircle,
   ChevronLeft, ChevronRight, Calendar, Monitor, Eye,
+  UserPlus, Users, ClipboardList, Download, Star, Trash2,
 } from 'lucide-react';
 
 function obtenerLunesDeSemana(fecha) {
@@ -27,6 +28,7 @@ function formatearSemana(lunes) {
 }
 
 const FORM_VACIO = { nombre_docente: '', nombre_proyecto: '', descripcion: '', contacto: '' };
+const ASIST_VACIO = { nombreCompleto: '', cedula: '', telefono: '', programa: '', semestre: '', nombreProfesor: '' };
 const DIA_LABELS = ['Lunes', 'Martes', 'Miércoles', 'Jueves'];
 const HOY = new Date().toISOString().split('T')[0];
 
@@ -34,7 +36,6 @@ function esDiaPasado(fechaDia) {
   return fechaDia < HOY;
 }
 
-// Franjas fijas: 4 bloques de 1 hora (9:30–10:30, 10:30–11:30, 11:30–12:30, 12:00–13:00)
 const FRANJAS_FIJAS = [
   '9:30 a.m.', '10:30 a.m.', '11:30 a.m.', '12:00 p.m.',
 ];
@@ -44,6 +45,31 @@ const FRANJAS_FIN = {
   '11:30 a.m.': '12:30 p.m.',
   '12:00 p.m.': '1:00 p.m.',
 };
+
+// ─── Componente de estrellas ────────────────────────────
+function Estrellas({ value, onChange, disabled }) {
+  return (
+    <div className="flex gap-1">
+      {[1, 2, 3, 4, 5].map((n) => (
+        <button
+          key={n}
+          type="button"
+          disabled={disabled}
+          onClick={() => onChange?.(n)}
+          className={`transition-colors ${disabled ? 'cursor-default' : 'cursor-pointer hover:scale-110'}`}
+        >
+          <Star
+            className={`w-5 h-5 transition-colors ${
+              n <= (value || 0)
+                ? 'text-yellow-400 fill-yellow-400'
+                : 'text-gray-300'
+            }`}
+          />
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export default function ValleIA() {
   const { puedeGestionarSolicitudes } = useAuth();
@@ -59,6 +85,17 @@ export default function ValleIA() {
   const [reservaExitosa, setReservaExitosa] = useState(false);
   const [form, setForm] = useState(FORM_VACIO);
   const [enviando, setEnviando] = useState(false);
+
+  // Asistencia
+  const [modalAsistencia, setModalAsistencia] = useState(false);
+  const [asistenciaReserva, setAsistenciaReserva] = useState(null);
+  const [asistencias, setAsistencias] = useState([]);
+  const [formAsist, setFormAsist] = useState(ASIST_VACIO);
+  const [enviandoAsist, setEnviandoAsist] = useState(false);
+  const [loadingAsist, setLoadingAsist] = useState(false);
+  const [modalEncuesta, setModalEncuesta] = useState(null);
+  const [encuestaForm, setEncuestaForm] = useState({ calificacionClase: 0, calificacionHerramientas: 0, queMejorar: '' });
+  const [enviandoEncuesta, setEnviandoEncuesta] = useState(false);
 
   const semanaKey = semanaActual.toISOString().split('T')[0];
 
@@ -136,7 +173,6 @@ export default function ValleIA() {
 
   const verDetalle = (reserva) => {
     setReservaDetalle(reserva);
-    // Navegar al día correspondiente en el calendario
     const idx = DIA_LABELS.findIndex((_, i) => obtenerFechaDia(semanaActual, i) === reserva.dia);
     if (idx >= 0) setDiaSeleccionado(idx);
     setModalDetalle(true);
@@ -149,6 +185,109 @@ export default function ValleIA() {
     const d = new Date(semanaActual); d.setDate(d.getDate() + 7); setSemanaActual(d);
   };
 
+  // ─── Funciones de asistencia ─────────────────────────
+  const abrirAsistencia = async (reserva) => {
+    setAsistenciaReserva(reserva);
+    setModalAsistencia(true);
+    setFormAsist(ASIST_VACIO);
+    setLoadingAsist(true);
+    try {
+      const res = await api.get(`/valle-ia/asistencia/${reserva.id}`);
+      setAsistencias(Array.isArray(res) ? res : []);
+    } catch (e) {
+      console.error(e);
+      setAsistencias([]);
+    } finally {
+      setLoadingAsist(false);
+    }
+  };
+
+  const agregarEstudiante = async (e) => {
+    e.preventDefault();
+    setEnviandoAsist(true);
+    try {
+      const nuevo = await api.post('/valle-ia/asistencia', {
+        reservaId: asistenciaReserva.id,
+        ...formAsist,
+      });
+      setAsistencias((prev) => [...prev, nuevo]);
+      setFormAsist(ASIST_VACIO);
+    } catch (err) {
+      alert(err.data?.error || 'Error al registrar estudiante');
+    } finally {
+      setEnviandoAsist(false);
+    }
+  };
+
+  const confirmarAsistencia = async (id) => {
+    try {
+      const updated = await api.patch(`/valle-ia/asistencia/${id}/confirmar`);
+      setAsistencias((prev) => prev.map((a) => (a.id === id ? updated : a)));
+    } catch (err) {
+      alert(err.data?.error || 'Error al confirmar');
+    }
+  };
+
+  const eliminarEstudiante = async (id) => {
+    try {
+      await api.delete(`/valle-ia/asistencia/${id}`);
+      setAsistencias((prev) => prev.filter((a) => a.id !== id));
+    } catch (err) {
+      alert(err.data?.error || 'Error al eliminar');
+    }
+  };
+
+  const enviarEncuesta = async (id) => {
+    if (!encuestaForm.calificacionClase || !encuestaForm.calificacionHerramientas) {
+      alert('Por favor califica la clase y las herramientas (1-5 estrellas)');
+      return;
+    }
+    setEnviandoEncuesta(true);
+    try {
+      const updated = await api.patch(`/valle-ia/asistencia/${id}/encuesta`, {
+        calificacionClase: encuestaForm.calificacionClase,
+        calificacionHerramientas: encuestaForm.calificacionHerramientas,
+        queMejorar: encuestaForm.queMejorar || undefined,
+      });
+      setAsistencias((prev) => prev.map((a) => (a.id === id ? updated : a)));
+      setModalEncuesta(null);
+    } catch (err) {
+      alert(err.data?.error || 'Error al enviar encuesta');
+    } finally {
+      setEnviandoEncuesta(false);
+    }
+  };
+
+  const descargarCSV = async (reservaId) => {
+    try {
+      const res = await fetch(`/api/valle-ia/asistencia-csv/${reservaId}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+      if (!res.ok) throw new Error('Error al descargar');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `asistencia_${reservaId}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      // Fallback: usar api directamente
+      try {
+        const response = await api.get(`/valle-ia/asistencia-csv/${reservaId}`);
+        const blob = new Blob([response], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `asistencia_${reservaId}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        alert(err.data?.error || 'Error al descargar CSV');
+      }
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -157,7 +296,6 @@ export default function ValleIA() {
     );
   }
 
-  // Día activo (por defecto el primero disponible)
   const diaActivo = diaSeleccionado ?? 0;
   const fechaDiaActivo = obtenerFechaDia(semanaActual, diaActivo);
 
@@ -483,6 +621,17 @@ export default function ValleIA() {
                 </span>
                 <span className="text-xs text-gray-400">Solicitado por {reservaDetalle.solicitante?.nombre}</span>
               </div>
+
+              {/* Botón de asistencia para reservas aprobadas */}
+              {reservaDetalle.estado === 'APROBADA' && (
+                <button
+                  onClick={() => { setModalDetalle(false); abrirAsistencia(reservaDetalle); }}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium transition-colors"
+                >
+                  <ClipboardList className="w-4 h-4" /> Lista de asistencia
+                </button>
+              )}
+
               {puedeGestionarSolicitudes() && reservaDetalle.estado === 'PENDIENTE' && (
                 <div className="flex gap-3 pt-2 border-t border-gray-100">
                   <button onClick={() => cambiarEstado(reservaDetalle.id, 'RECHAZADA')}
@@ -495,6 +644,256 @@ export default function ValleIA() {
                   </button>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════ */}
+      {/* Modal: Lista de Asistencia                        */}
+      {/* ══════════════════════════════════════════════════ */}
+      {modalAsistencia && asistenciaReserva && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-t-2xl p-4 sm:p-5 text-white shrink-0">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-base sm:text-lg flex items-center gap-2">
+                    <ClipboardList className="w-5 h-5" /> Lista de asistencia
+                  </h3>
+                  <p className="text-purple-200 text-sm mt-0.5">
+                    {asistenciaReserva.dia} · {asistenciaReserva.hora} · {asistenciaReserva.formulario?.nombre_docente}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {puedeGestionarSolicitudes() && asistencias.length > 0 && (
+                    <button
+                      onClick={() => descargarCSV(asistenciaReserva.id)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-sm font-medium transition-colors"
+                    >
+                      <Download className="w-4 h-4" /> CSV
+                    </button>
+                  )}
+                  <button onClick={() => setModalAsistencia(false)} className="p-2 hover:bg-white/20 rounded-xl transition-colors">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-5">
+              {/* Formulario para agregar estudiantes (solo gestores) */}
+              {puedeGestionarSolicitudes() && (
+                <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
+                  <h4 className="text-sm font-semibold text-purple-800 mb-3 flex items-center gap-2">
+                    <UserPlus className="w-4 h-4" /> Registrar estudiante
+                  </h4>
+                  <form onSubmit={agregarEstudiante} className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Nombre completo *</label>
+                        <input type="text" className="input-field w-full text-sm" placeholder="Juan Pérez"
+                          value={formAsist.nombreCompleto} onChange={(e) => setFormAsist({ ...formAsist, nombreCompleto: e.target.value })} required />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Número de cédula *</label>
+                        <input type="text" className="input-field w-full text-sm" placeholder="1234567890"
+                          value={formAsist.cedula} onChange={(e) => setFormAsist({ ...formAsist, cedula: e.target.value })} required />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Teléfono *</label>
+                        <input type="text" className="input-field w-full text-sm" placeholder="3001234567"
+                          value={formAsist.telefono} onChange={(e) => setFormAsist({ ...formAsist, telefono: e.target.value })} required />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Programa *</label>
+                        <input type="text" className="input-field w-full text-sm" placeholder="Ingeniería de Sistemas"
+                          value={formAsist.programa} onChange={(e) => setFormAsist({ ...formAsist, programa: e.target.value })} required />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Semestre *</label>
+                        <input type="text" className="input-field w-full text-sm" placeholder="5to"
+                          value={formAsist.semestre} onChange={(e) => setFormAsist({ ...formAsist, semestre: e.target.value })} required />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Profesor / Decano *</label>
+                        <input type="text" className="input-field w-full text-sm" placeholder="Nombre del profesor"
+                          value={formAsist.nombreProfesor} onChange={(e) => setFormAsist({ ...formAsist, nombreProfesor: e.target.value })} required />
+                      </div>
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={enviandoAsist}
+                      className="w-full sm:w-auto flex items-center justify-center gap-2 py-2 px-5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium transition-colors disabled:opacity-60"
+                    >
+                      {enviandoAsist
+                        ? <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                        : <UserPlus className="w-4 h-4" />}
+                      Agregar a la lista
+                    </button>
+                  </form>
+                </div>
+              )}
+
+              {/* Lista de estudiantes */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                    <Users className="w-4 h-4 text-purple-500" />
+                    Estudiantes registrados
+                    <span className="text-xs font-bold bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
+                      {asistencias.length}
+                    </span>
+                  </h4>
+                  {asistencias.length > 0 && (
+                    <span className="text-xs text-gray-400">
+                      {asistencias.filter((a) => a.confirmado).length} confirmados
+                    </span>
+                  )}
+                </div>
+
+                {loadingAsist ? (
+                  <div className="flex justify-center py-8">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600" />
+                  </div>
+                ) : asistencias.length === 0 ? (
+                  <div className="text-center py-8 text-gray-400">
+                    <Users className="w-10 h-10 mx-auto mb-2 text-gray-300" />
+                    <p className="text-sm">No hay estudiantes registrados</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {asistencias.map((a) => (
+                      <div
+                        key={a.id}
+                        className={`border rounded-xl p-3 transition-colors ${
+                          a.confirmado ? 'bg-green-50 border-green-200' : 'bg-white border-gray-200'
+                        }`}
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-semibold text-sm text-gray-900">{a.nombreCompleto}</span>
+                              {a.confirmado ? (
+                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">
+                                  Asistencia confirmada
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                                  Pendiente
+                                </span>
+                              )}
+                              {a.calificacionClase && (
+                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 flex items-center gap-0.5">
+                                  <Star className="w-2.5 h-2.5 fill-yellow-500 text-yellow-500" /> Encuesta completada
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-xs text-gray-500 mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
+                              <span>CC: {a.cedula}</span>
+                              <span>Tel: {a.telefono}</span>
+                              <span>{a.programa} · {a.semestre}</span>
+                              <span>Prof: {a.nombreProfesor}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {/* Confirmar asistencia */}
+                            {!a.confirmado && (
+                              <button
+                                onClick={() => confirmarAsistencia(a.id)}
+                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-medium transition-colors"
+                              >
+                                <Check className="w-3.5 h-3.5" /> Confirmar
+                              </button>
+                            )}
+                            {/* Encuesta (solo si confirmó y no ha llenado) */}
+                            {a.confirmado && !a.calificacionClase && (
+                              <button
+                                onClick={() => {
+                                  setModalEncuesta(a);
+                                  setEncuestaForm({ calificacionClase: 0, calificacionHerramientas: 0, queMejorar: '' });
+                                }}
+                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-yellow-500 hover:bg-yellow-600 text-white text-xs font-medium transition-colors"
+                              >
+                                <Star className="w-3.5 h-3.5" /> Calificar
+                              </button>
+                            )}
+                            {/* Eliminar (solo gestores) */}
+                            {puedeGestionarSolicitudes() && (
+                              <button
+                                onClick={() => eliminarEstudiante(a.id)}
+                                className="p-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 transition-colors"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════ */}
+      {/* Modal: Encuesta de calificación                   */}
+      {/* ══════════════════════════════════════════════════ */}
+      {modalEncuesta && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
+            <div className="bg-gradient-to-r from-yellow-500 to-orange-500 rounded-t-2xl p-4 text-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-base flex items-center gap-2">
+                    <Star className="w-5 h-5" /> Califica tu experiencia
+                  </h3>
+                  <p className="text-yellow-100 text-sm mt-0.5">{modalEncuesta.nombreCompleto}</p>
+                </div>
+                <button onClick={() => setModalEncuesta(null)} className="p-2 hover:bg-white/20 rounded-xl transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            <div className="p-5 space-y-5">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Calificación de la clase *</label>
+                <Estrellas value={encuestaForm.calificacionClase} onChange={(v) => setEncuestaForm({ ...encuestaForm, calificacionClase: v })} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Calificación de las herramientas *</label>
+                <Estrellas value={encuestaForm.calificacionHerramientas} onChange={(v) => setEncuestaForm({ ...encuestaForm, calificacionHerramientas: v })} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">¿Qué podría mejorar? <span className="text-gray-400 font-normal">(opcional)</span></label>
+                <textarea
+                  className="input-field w-full resize-none"
+                  rows={3}
+                  placeholder="Tu opinión nos ayuda a mejorar..."
+                  value={encuestaForm.queMejorar}
+                  onChange={(e) => setEncuestaForm({ ...encuestaForm, queMejorar: e.target.value })}
+                  maxLength={500}
+                />
+              </div>
+              <div className="flex gap-3">
+                <button type="button" onClick={() => setModalEncuesta(null)} className="btn-secondary flex-1">
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => enviarEncuesta(modalEncuesta.id)}
+                  disabled={enviandoEncuesta || !encuestaForm.calificacionClase || !encuestaForm.calificacionHerramientas}
+                  className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors disabled:opacity-60"
+                >
+                  {enviandoEncuesta
+                    ? <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                    : <Send className="w-4 h-4" />}
+                  Enviar
+                </button>
+              </div>
             </div>
           </div>
         </div>
