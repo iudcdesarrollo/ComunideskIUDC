@@ -72,7 +72,7 @@ export function AuthProvider({ children }) {
   const esDirector = () => usuario?.rol === 'director';
   const esEquipo = () => usuario?.rol === 'equipo';
   const esSolicitante = () => usuario?.rol === 'solicitante';
-  const puedeVerUrgentes = () => esAdmin() || esDirector();
+  const puedeVerUrgentes = () => esAdmin() || esDirector() || esEquipo();
   const puedeGestionarSolicitudes = () => esAdmin() || esDirector() || esEquipo();
 
   return (

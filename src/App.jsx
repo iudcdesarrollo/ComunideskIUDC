@@ -87,7 +87,7 @@ function AppRoutes() {
         <Route
           path="urgente"
           element={
-            <RutaProtegida roles={['admin', 'director']}>
+            <RutaProtegida roles={['admin', 'director', 'equipo']}>
               <CanalUrgente />
             </RutaProtegida>
           }

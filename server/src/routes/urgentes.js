@@ -8,8 +8,8 @@ import { crearNotificacion } from '../helpers/notificaciones.js';
 const router = Router();
 const prisma = new PrismaClient();
 
-// All urgentes routes require ADMIN or DIRECTOR
-router.use(authenticateToken, authorizeRoles('ADMIN', 'DIRECTOR'));
+// All urgentes routes require ADMIN, DIRECTOR or EQUIPO
+router.use(authenticateToken, authorizeRoles('ADMIN', 'DIRECTOR', 'EQUIPO'));
 
 const createSchema = z.object({
   titulo: z.string().min(1, 'Título requerido'),
