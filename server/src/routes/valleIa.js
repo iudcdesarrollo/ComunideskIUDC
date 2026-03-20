@@ -694,4 +694,69 @@ router.post(
   }
 );
 
+// ─── INTERESADOS NOCTURNA ──────────────────────────
+
+// POST /api/valle-ia/nocturna/inscribir — Público, estudiante se inscribe
+router.post('/nocturna/inscribir', async (req, res, next) => {
+  try {
+    const { nombreCompleto, cedula, programa, semestre, telefono, email } = req.body;
+
+    if (!nombreCompleto || !cedula) {
+      return res.status(400).json({ error: 'Nombre y cédula son obligatorios' });
+    }
+
+    const existente = await prisma.interesadoNocturna.findUnique({ where: { cedula } });
+    if (existente) {
+      return res.json({ mensaje: 'Ya estás inscrito', interesado: existente, yaExistia: true });
+    }
+
+    const nuevo = await prisma.interesadoNocturna.create({
+      data: {
+        nombreCompleto,
+        cedula,
+        programa: programa || null,
+        semestre: semestre || null,
+        telefono: telefono || null,
+        email: email || null,
+      },
+    });
+
+    res.status(201).json({ mensaje: 'Inscripción exitosa', interesado: nuevo, yaExistia: false });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/valle-ia/nocturna/interesados — Solo director/admin/equipo
+router.get(
+  '/nocturna/interesados',
+  authenticateToken,
+  authorizeRoles('ADMIN', 'DIRECTOR', 'EQUIPO'),
+  async (req, res, next) => {
+    try {
+      const interesados = await prisma.interesadoNocturna.findMany({
+        orderBy: { createdAt: 'desc' },
+      });
+      res.json(interesados);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// DELETE /api/valle-ia/nocturna/interesados/:id — Solo director
+router.delete(
+  '/nocturna/interesados/:id',
+  authenticateToken,
+  authorizeRoles('ADMIN', 'DIRECTOR'),
+  async (req, res, next) => {
+    try {
+      await prisma.interesadoNocturna.delete({ where: { id: parseInt(req.params.id) } });
+      res.json({ mensaje: 'Eliminado' });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 export default router;

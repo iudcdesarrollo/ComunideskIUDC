@@ -88,6 +88,13 @@ export default function ValleIA() {
   const [form, setForm] = useState(FORM_VACIO);
   const [enviando, setEnviando] = useState(false);
 
+  // Nocturna
+  const [modalNocturna, setModalNocturna] = useState(false);
+  const [interesadosNocturna, setInteresadosNocturna] = useState([]);
+  const [formNocturna, setFormNocturna] = useState({ nombreCompleto: '', cedula: '', programa: '', semestre: '', telefono: '', email: '' });
+  const [enviandoNocturna, setEnviandoNocturna] = useState(false);
+  const [msgNocturna, setMsgNocturna] = useState(null);
+
   // QR
   const [modalQR, setModalQR] = useState(false);
   const [qrReserva, setQrReserva] = useState(null);
@@ -137,6 +144,48 @@ export default function ValleIA() {
     };
     cargar();
   }, [cargarReservas, cargarPendientes]);
+
+  const cargarInteresadosNocturna = useCallback(async () => {
+    if (!puedeGestionarSolicitudes()) return;
+    try {
+      const res = await api.get('/valle-ia/nocturna/interesados');
+      setInteresadosNocturna(Array.isArray(res) ? res : []);
+    } catch { setInteresadosNocturna([]); }
+  }, [puedeGestionarSolicitudes]);
+
+  useEffect(() => { cargarInteresadosNocturna(); }, [cargarInteresadosNocturna]);
+
+  const inscribirNocturna = async (e) => {
+    e.preventDefault();
+    if (!formNocturna.nombreCompleto || !formNocturna.cedula) return;
+    setEnviandoNocturna(true);
+    setMsgNocturna(null);
+    try {
+      const resp = await fetch('/api/valle-ia/nocturna/inscribir', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formNocturna),
+      });
+      const data = await resp.json();
+      if (resp.ok) {
+        setMsgNocturna({ tipo: 'ok', texto: data.yaExistia ? 'Ya estabas inscrito' : 'Inscripcion exitosa' });
+        setFormNocturna({ nombreCompleto: '', cedula: '', programa: '', semestre: '', telefono: '', email: '' });
+        cargarInteresadosNocturna();
+      } else {
+        setMsgNocturna({ tipo: 'error', texto: data.error });
+      }
+    } catch {
+      setMsgNocturna({ tipo: 'error', texto: 'Error de conexion' });
+    }
+    setEnviandoNocturna(false);
+  };
+
+  const eliminarInteresado = async (id) => {
+    try {
+      await api.delete(`/valle-ia/nocturna/interesados/${id}`);
+      cargarInteresadosNocturna();
+    } catch {}
+  };
 
   const getReserva = (fechaDia, hora) =>
     reservas.find((r) => r.dia === fechaDia && r.hora === hora && r.estado !== 'RECHAZADA');
@@ -383,6 +432,68 @@ export default function ValleIA() {
         </div>
       )}
 
+      {/* ─── Banner Valle Nocturna ─────────────────── */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-900 via-violet-800 to-purple-900 p-6 sm:p-8 text-white shadow-xl">
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+          <div className="absolute top-4 right-8 w-20 h-20 bg-yellow-300/10 rounded-full blur-2xl animate-pulse" />
+          <div className="absolute bottom-4 left-12 w-16 h-16 bg-blue-400/15 rounded-full blur-xl animate-pulse" style={{ animationDelay: '1s' }} />
+          <div className="absolute top-1/2 right-1/4 w-24 h-24 bg-purple-400/10 rounded-full blur-2xl animate-pulse" style={{ animationDelay: '2s' }} />
+        </div>
+
+        <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          <div className="flex-shrink-0 bg-white/10 backdrop-blur-sm rounded-2xl p-4">
+            <Monitor className="w-10 h-10" />
+          </div>
+
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="px-2.5 py-0.5 bg-yellow-400 text-yellow-900 text-[10px] font-black uppercase tracking-wider rounded-full animate-bounce">
+                Próximamente
+              </span>
+              <span className="px-2.5 py-0.5 bg-white/20 text-white text-[10px] font-bold uppercase tracking-wider rounded-full">
+                Jornada Nocturna
+              </span>
+            </div>
+            <h3 className="text-xl sm:text-2xl font-black tracking-tight">
+              Valle del Software · IA Nocturna
+            </h3>
+            <p className="text-purple-200 text-sm mt-1 max-w-lg">
+              Muy pronto abriremos nuevos espacios de capacitación en IA para los estudiantes de la jornada nocturna. Agenda tu equipo, reserva tu horario y trabaja con inteligencia artificial en el Valle del Software.
+            </p>
+
+            <div className="mt-4 flex flex-wrap gap-3">
+              <div className="flex items-center gap-1.5 bg-white/10 backdrop-blur-sm rounded-lg px-3 py-1.5 text-xs font-medium">
+                <Clock className="w-3.5 h-3.5" /> Franja nocturna
+              </div>
+              <div className="flex items-center gap-1.5 bg-white/10 backdrop-blur-sm rounded-lg px-3 py-1.5 text-xs font-medium">
+                <Users className="w-3.5 h-3.5" /> Capacitaciones con docentes
+              </div>
+              <div className="flex items-center gap-1.5 bg-white/10 backdrop-blur-sm rounded-lg px-3 py-1.5 text-xs font-medium">
+                <Brain className="w-3.5 h-3.5" /> Herramientas IA
+              </div>
+            </div>
+
+            <button
+              onClick={() => setModalNocturna(true)}
+              className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 bg-yellow-400 hover:bg-yellow-300 text-yellow-900 rounded-xl text-sm font-bold transition-colors shadow-lg"
+            >
+              <UserPlus className="w-4 h-4" />
+              Quiero inscribirme
+              {interesadosNocturna.length > 0 && (
+                <span className="bg-yellow-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  {interesadosNocturna.length} inscritos
+                </span>
+              )}
+            </button>
+          </div>
+
+          <div className="hidden sm:flex flex-col items-center gap-1 bg-white/10 backdrop-blur-sm rounded-2xl px-5 py-4">
+            <Brain className="w-8 h-8" />
+            <span className="text-[10px] font-bold uppercase tracking-wider text-purple-200">IA</span>
+          </div>
+        </div>
+      </div>
+
       {/* Panel: Agendamientos pendientes de confirmación */}
       {puedeGestionarSolicitudes() && pendientes.length > 0 && (
         <div className="card border-l-4 border-l-purple-400">
@@ -404,7 +515,7 @@ export default function ValleIA() {
                     {res.dia} · {res.hora} · {res.formulario?.nombre_proyecto || ''}
                   </span>
                 </div>
-                <div className="flex gap-2 shrink-0">
+                <div className="flex flex-wrap gap-2 shrink-0">
                   <button
                     onClick={() => verDetalle(res)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-purple-200 text-purple-700 text-xs font-medium hover:bg-purple-100 transition-colors"
@@ -499,7 +610,7 @@ export default function ValleIA() {
             <span className="text-sm font-semibold text-gray-700">
               {DIA_LABELS[diaActivo]} · {fechaDiaActivo.slice(8)}/{fechaDiaActivo.slice(5,7)}
             </span>
-            <span className="text-xs text-gray-400">— Selecciona un horario para agendar un equipo</span>
+            <span className="text-xs text-gray-400 hidden sm:inline">— Selecciona un horario para agendar un equipo</span>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -568,11 +679,11 @@ export default function ValleIA() {
           </div>
 
           {/* Leyenda */}
-          <div className="flex flex-wrap gap-4 mt-5 pt-4 border-t border-gray-100 text-xs text-gray-500">
-            <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded border-2 border-gray-200 bg-white" /><span>Disponible — clic para agendar</span></div>
-            <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded border-2 border-amber-300 bg-amber-50" /><span>Pendiente de confirmación</span></div>
-            <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded border-2 border-green-300 bg-green-50" /><span>Confirmado</span></div>
-            <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded border-2 border-gray-100 bg-gray-50 opacity-50" /><span>No disponible (día pasado)</span></div>
+          <div className="flex flex-wrap gap-x-4 gap-y-2 mt-5 pt-4 border-t border-gray-100 text-[11px] text-gray-500">
+            <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded border-2 border-gray-200 bg-white shrink-0" /><span>Disponible</span></div>
+            <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded border-2 border-amber-300 bg-amber-50 shrink-0" /><span>Pendiente</span></div>
+            <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded border-2 border-green-300 bg-green-50 shrink-0" /><span>Confirmado</span></div>
+            <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded border-2 border-gray-100 bg-gray-50 opacity-50 shrink-0" /><span>No disponible</span></div>
           </div>
         </div>
       </div>
@@ -1106,6 +1217,133 @@ export default function ValleIA() {
             ) : (
               <p className="text-gray-500 text-sm">No se pudo generar el código QR</p>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ─── Modal Inscripción Nocturna ────────────── */}
+      {modalNocturna && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="bg-gradient-to-r from-indigo-900 to-purple-800 p-5 text-white flex justify-between items-center shrink-0">
+              <div>
+                <h3 className="font-bold text-base">Valle del Software · IA Nocturna</h3>
+                <p className="text-purple-200 text-xs mt-0.5">Inscripcion de interesados</p>
+              </div>
+              <button onClick={() => { setModalNocturna(false); setMsgNocturna(null); }} className="p-2 hover:bg-white/20 rounded-xl">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto flex-1 p-5 space-y-5">
+              {/* Formulario */}
+              <form onSubmit={inscribirNocturna} className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Nombre completo *</label>
+                    <input type="text" required value={formNocturna.nombreCompleto}
+                      onChange={e => setFormNocturna({ ...formNocturna, nombreCompleto: e.target.value })}
+                      className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                      placeholder="Nombre del estudiante" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Cedula *</label>
+                    <input type="text" required value={formNocturna.cedula}
+                      onChange={e => setFormNocturna({ ...formNocturna, cedula: e.target.value })}
+                      className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                      placeholder="Numero de cedula" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Programa</label>
+                    <input type="text" value={formNocturna.programa}
+                      onChange={e => setFormNocturna({ ...formNocturna, programa: e.target.value })}
+                      className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                      placeholder="Ej: Ingenieria de Sistemas" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Semestre</label>
+                    <input type="text" value={formNocturna.semestre}
+                      onChange={e => setFormNocturna({ ...formNocturna, semestre: e.target.value })}
+                      className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                      placeholder="Ej: 5to" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Telefono</label>
+                    <input type="text" value={formNocturna.telefono}
+                      onChange={e => setFormNocturna({ ...formNocturna, telefono: e.target.value })}
+                      className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                      placeholder="Opcional" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Email</label>
+                    <input type="email" value={formNocturna.email}
+                      onChange={e => setFormNocturna({ ...formNocturna, email: e.target.value })}
+                      className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                      placeholder="Opcional" />
+                  </div>
+                </div>
+
+                {msgNocturna && (
+                  <div className={`rounded-xl p-3 text-sm ${msgNocturna.tipo === 'ok' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                    {msgNocturna.texto}
+                  </div>
+                )}
+
+                <button type="submit" disabled={enviandoNocturna}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl text-sm font-medium hover:shadow-lg transition-all disabled:opacity-50">
+                  <UserPlus className="w-4 h-4" />
+                  {enviandoNocturna ? 'Inscribiendo...' : 'Inscribir estudiante'}
+                </button>
+              </form>
+
+              {/* Lista de inscritos (solo gestores) */}
+              {puedeGestionarSolicitudes() && (
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                      <Users className="w-4 h-4 text-indigo-600" />
+                      Inscritos ({interesadosNocturna.length})
+                    </h4>
+                    {interesadosNocturna.length > 0 && (
+                      <button
+                        onClick={() => {
+                          const csv = ['Nombre,Cedula,Programa,Semestre,Telefono,Email,Fecha']
+                            .concat(interesadosNocturna.map(i =>
+                              `"${i.nombreCompleto}","${i.cedula}","${i.programa || ''}","${i.semestre || ''}","${i.telefono || ''}","${i.email || ''}","${new Date(i.createdAt).toLocaleDateString()}"`
+                            )).join('\n');
+                          const blob = new Blob([csv], { type: 'text/csv' });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a'); a.href = url; a.download = 'interesados_nocturna.csv'; a.click();
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-medium hover:bg-indigo-100 transition-colors"
+                      >
+                        <Download className="w-3.5 h-3.5" /> Exportar CSV
+                      </button>
+                    )}
+                  </div>
+
+                  {interesadosNocturna.length === 0 ? (
+                    <p className="text-gray-400 text-sm text-center py-4">Aun no hay inscritos</p>
+                  ) : (
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {interesadosNocturna.map((i) => (
+                        <div key={i.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">{i.nombreCompleto}</p>
+                            <p className="text-xs text-gray-500">
+                              CC {i.cedula} {i.programa ? `· ${i.programa}` : ''} {i.semestre ? `· ${i.semestre}` : ''}
+                            </p>
+                          </div>
+                          <button onClick={() => eliminarInteresado(i.id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

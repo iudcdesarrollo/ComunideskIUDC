@@ -201,3 +201,14 @@ model Notificacion {
   user        User     @relation(fields: [userId], references: [id])
 }
 
+model InteresadoNocturna {
+  id              Int      @id @default(autoincrement())
+  nombreCompleto  String
+  cedula          String   @unique
+  programa        String?
+  semestre        String?
+  telefono        String?
+  email           String?
+  createdAt       DateTime @default(now())
+}
+
