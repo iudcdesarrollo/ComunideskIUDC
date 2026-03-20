@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import { randomUUID } from 'crypto';
 import { PrismaClient } from '@prisma/client';
 import validate from '../middleware/validate.js';
 import { authenticateToken, authorizeRoles } from '../middleware/auth.js';
@@ -150,9 +151,13 @@ router.patch(
       if (!['APROBADA', 'RECHAZADA', 'PENDIENTE'].includes(estado)) {
         return res.status(400).json({ error: 'Estado inválido' });
       }
+      const dataToUpdate = { estado };
+      if (estado === 'APROBADA') {
+        dataToUpdate.qrToken = randomUUID();
+      }
       const reserva = await prisma.reservaValleIA.update({
         where: { id: parseInt(req.params.id) },
-        data: { estado },
+        data: dataToUpdate,
         include: { solicitante: { select: { id: true, nombre: true } } },
       });
 
@@ -573,6 +578,116 @@ router.get(
         programasTop,
         reservasPorSemana,
       });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// ─── ENDPOINTS PÚBLICOS (QR Asistencia) ────────────
+// No requieren autenticación — los estudiantes acceden escaneando el QR
+
+// GET /api/valle-ia/qr/:token — Info de la reserva para la página pública
+router.get('/qr/:token', async (req, res, next) => {
+  try {
+    const reserva = await prisma.reservaValleIA.findUnique({
+      where: { qrToken: req.params.token },
+      include: { asistencias: true },
+    });
+
+    if (!reserva || reserva.estado !== 'APROBADA') {
+      return res.status(404).json({ error: 'Reserva no encontrada o no está activa' });
+    }
+
+    res.json({
+      id: reserva.id,
+      dia: reserva.dia,
+      hora: reserva.hora,
+      nombreDocente: reserva.formulario?.nombre_docente || '',
+      nombreProyecto: reserva.formulario?.nombre_proyecto || '',
+      totalRegistrados: reserva.asistencias.length,
+      totalConfirmados: reserva.asistencias.filter(a => a.confirmado).length,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/valle-ia/qr/:token/registrar — Estudiante confirma asistencia
+router.post('/qr/:token/registrar', async (req, res, next) => {
+  try {
+    const { nombreCompleto, cedula, programa, semestre, telefono } = req.body;
+
+    if (!nombreCompleto || !cedula) {
+      return res.status(400).json({ error: 'Nombre y cédula son obligatorios' });
+    }
+
+    const reserva = await prisma.reservaValleIA.findUnique({
+      where: { qrToken: req.params.token },
+    });
+
+    if (!reserva || reserva.estado !== 'APROBADA') {
+      return res.status(404).json({ error: 'Reserva no encontrada o no está activa' });
+    }
+
+    // Verificar si ya existe por cédula en esta reserva
+    const existente = await prisma.asistenciaValle.findFirst({
+      where: { reservaId: reserva.id, cedula },
+    });
+
+    if (existente) {
+      // Marcar como confirmado
+      const actualizado = await prisma.asistenciaValle.update({
+        where: { id: existente.id },
+        data: { confirmado: true },
+      });
+      return res.json({ mensaje: 'Asistencia confirmada', asistencia: actualizado, yaExistia: true });
+    }
+
+    // Crear nuevo registro confirmado
+    const nuevo = await prisma.asistenciaValle.create({
+      data: {
+        reservaId: reserva.id,
+        nombreCompleto,
+        cedula,
+        telefono: telefono || 'N/A',
+        programa: programa || 'N/A',
+        semestre: semestre || 'N/A',
+        nombreProfesor: reserva.formulario?.nombre_docente || '',
+        confirmado: true,
+      },
+    });
+
+    res.status(201).json({ mensaje: 'Asistencia registrada', asistencia: nuevo, yaExistia: false });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/valle-ia/reservas/:id/generar-qr — Generar token QR para reservas ya aprobadas
+router.post(
+  '/reservas/:id/generar-qr',
+  authenticateToken,
+  authorizeRoles('ADMIN', 'DIRECTOR', 'EQUIPO'),
+  async (req, res, next) => {
+    try {
+      const reserva = await prisma.reservaValleIA.findUnique({
+        where: { id: parseInt(req.params.id) },
+      });
+
+      if (!reserva) return res.status(404).json({ error: 'Reserva no encontrada' });
+      if (reserva.estado !== 'APROBADA') return res.status(400).json({ error: 'La reserva debe estar aprobada' });
+
+      if (reserva.qrToken) {
+        return res.json({ qrToken: reserva.qrToken });
+      }
+
+      const updated = await prisma.reservaValleIA.update({
+        where: { id: reserva.id },
+        data: { qrToken: randomUUID() },
+      });
+
+      res.json({ qrToken: updated.qrToken });
     } catch (error) {
       next(error);
     }

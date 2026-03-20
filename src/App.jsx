@@ -12,6 +12,8 @@ import Exportar from './components/Exportar';
 import GestionUsuarios from './components/GestionUsuarios';
 import ValleIA from './components/ValleIA';
 import PQRS from './components/PQRS';
+import RegistroAsistenciaQR from './components/RegistroAsistenciaQR';
+
 
 function RutaProtegida({ children, roles }) {
   const { usuario, cargando } = useAuth();
@@ -53,6 +55,7 @@ function RutaPublica({ children }) {
 function AppRoutes() {
   return (
     <Routes>
+      <Route path="/asistencia-qr/:token" element={<RegistroAsistenciaQR />} />
       <Route
         path="/login"
         element={

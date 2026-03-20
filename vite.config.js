@@ -10,6 +10,9 @@ export default defineConfig({
         target: 'https://comunideskiudc-production.up.railway.app',
         changeOrigin: true,
       }
+    },
+    watch: {
+      ignored: ['**/bridge/**', '**/server/**']
     }
   }
 })

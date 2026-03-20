@@ -125,6 +125,7 @@ model ReservaValleIA {
   estado         EstadoReserva
   solicitanteId  Int
   formulario     Json
+  qrToken        String?            @unique
   createdAt      DateTime           @default(now())
   solicitante    User               @relation(fields: [solicitanteId], references: [id])
   asistencias    AsistenciaValle[]
@@ -199,3 +200,4 @@ model Notificacion {
   createdAt   DateTime @default(now())
   user        User     @relation(fields: [userId], references: [id])
 }
+

@@ -5,7 +5,9 @@ import {
   Brain, CheckCircle2, Clock, X, Send, Check, XCircle,
   ChevronLeft, ChevronRight, Calendar, Monitor, Eye,
   UserPlus, Users, ClipboardList, Download, Star, Trash2,
+  QrCode, Maximize2,
 } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 
 function obtenerLunesDeSemana(fecha) {
   const d = new Date(fecha);
@@ -85,6 +87,12 @@ export default function ValleIA() {
   const [reservaExitosa, setReservaExitosa] = useState(false);
   const [form, setForm] = useState(FORM_VACIO);
   const [enviando, setEnviando] = useState(false);
+
+  // QR
+  const [modalQR, setModalQR] = useState(false);
+  const [qrReserva, setQrReserva] = useState(null);
+  const [qrToken, setQrToken] = useState(null);
+  const [qrFullscreen, setQrFullscreen] = useState(false);
 
   // Asistencia
   const [modalAsistencia, setModalAsistencia] = useState(false);
@@ -669,14 +677,34 @@ export default function ValleIA() {
                 <span className="text-xs text-gray-400">Solicitado por {reservaDetalle.solicitante?.nombre}</span>
               </div>
 
-              {/* Botón de asistencia para reservas aprobadas */}
+              {/* Botones para reservas aprobadas */}
               {reservaDetalle.estado === 'APROBADA' && (
-                <button
-                  onClick={() => { setModalDetalle(false); abrirAsistencia(reservaDetalle); }}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium transition-colors"
-                >
-                  <ClipboardList className="w-4 h-4" /> Lista de asistencia
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { setModalDetalle(false); abrirAsistencia(reservaDetalle); }}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium transition-colors"
+                  >
+                    <ClipboardList className="w-4 h-4" /> Lista de asistencia
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setModalDetalle(false);
+                      setQrReserva(reservaDetalle);
+                      if (reservaDetalle.qrToken) {
+                        setQrToken(reservaDetalle.qrToken);
+                      } else {
+                        try {
+                          const data = await api.post(`/valle-ia/reservas/${reservaDetalle.id}/generar-qr`);
+                          setQrToken(data.qrToken);
+                        } catch { setQrToken(null); }
+                      }
+                      setModalQR(true);
+                    }}
+                    className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors"
+                  >
+                    <QrCode className="w-4 h-4" /> QR
+                  </button>
+                </div>
               )}
 
               {puedeGestionarSolicitudes() && reservaDetalle.estado === 'PENDIENTE' && (
@@ -1008,6 +1036,75 @@ export default function ValleIA() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Modal QR ──────────────────────────────── */}
+      {modalQR && qrReserva && (
+        <div className={`fixed inset-0 z-50 flex items-center justify-center ${qrFullscreen ? '' : 'bg-black/40'}`}>
+          <div className={`bg-white flex flex-col items-center ${qrFullscreen ? 'w-full h-full justify-center' : 'rounded-2xl shadow-xl max-w-md w-full mx-4 p-6'}`}>
+            {!qrFullscreen && (
+              <div className="w-full flex justify-between items-center mb-4">
+                <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                  <QrCode className="w-5 h-5 text-indigo-600" /> QR de Asistencia
+                </h3>
+                <button onClick={() => { setModalQR(false); setQrFullscreen(false); }} className="text-gray-400 hover:text-gray-600">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            )}
+
+            {qrToken ? (
+              <>
+                <div className={`bg-white p-4 rounded-xl ${qrFullscreen ? '' : 'border-2 border-gray-100'}`}>
+                  <QRCodeSVG
+                    value={`${window.location.origin}/asistencia-qr/${qrToken}`}
+                    size={qrFullscreen ? Math.min(window.innerWidth, window.innerHeight) * 0.7 : 280}
+                    level="M"
+                  />
+                </div>
+
+                {!qrFullscreen && (
+                  <>
+                    <div className="mt-4 text-center text-sm text-gray-600">
+                      <p className="font-medium">{qrReserva.formulario?.nombre_docente}</p>
+                      <p>{qrReserva.dia} · {qrReserva.hora}</p>
+                    </div>
+
+                    <p className="mt-3 text-xs text-gray-400 text-center">
+                      Los estudiantes escanean este QR con su celular para confirmar asistencia
+                    </p>
+
+                    <div className="mt-4 flex gap-2 w-full">
+                      <button
+                        onClick={() => setQrFullscreen(true)}
+                        className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors"
+                      >
+                        <Maximize2 className="w-4 h-4" /> Pantalla completa
+                      </button>
+                      <button
+                        onClick={() => { setModalQR(false); abrirAsistencia(qrReserva); }}
+                        className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium transition-colors"
+                      >
+                        <ClipboardList className="w-4 h-4" /> Ver lista
+                      </button>
+                    </div>
+                  </>
+                )}
+
+                {qrFullscreen && (
+                  <button
+                    onClick={() => setQrFullscreen(false)}
+                    className="mt-6 px-6 py-2.5 rounded-xl bg-gray-800 text-white text-sm font-medium hover:bg-gray-700"
+                  >
+                    Salir de pantalla completa
+                  </button>
+                )}
+              </>
+            ) : (
+              <p className="text-gray-500 text-sm">No se pudo generar el código QR</p>
+            )}
           </div>
         </div>
       )}
