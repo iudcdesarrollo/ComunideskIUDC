@@ -507,7 +507,8 @@ export default function ValleIA() {
               const reserva = getReserva(fechaDiaActivo, hora);
               const esAprobada = reserva?.estado === 'APROBADA';
               const esPendiente = reserva?.estado === 'PENDIENTE';
-              const pasadoSinReserva = esDiaPasado(fechaDiaActivo) && !reserva;
+              const pasado = esDiaPasado(fechaDiaActivo);
+              const pasadoSinReserva = pasado && !reserva;
 
               return (
                 <button
