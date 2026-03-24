@@ -268,4 +268,64 @@ router.patch(
   }
 );
 
+// ─── DELETE /api/radio/reservas/:id ──────────────────
+// Eliminar reserva (liberar slot) — solo Admin/Director
+router.delete(
+  '/reservas/:id',
+  authenticateToken,
+  authorizeRoles('ADMIN', 'DIRECTOR'),
+  async (req, res, next) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      await prisma.reservaRadio.delete({ where: { id } });
+      res.json({ ok: true });
+    } catch (error) {
+      if (error.code === 'P2025') return res.status(404).json({ error: 'Reserva no encontrada' });
+      next(error);
+    }
+  }
+);
+
+// ─── CRUD Programas Fijos (solo Admin/Director) ─────
+
+// POST /api/radio/programas-fijos — Crear programa fijo
+router.post(
+  '/programas-fijos',
+  authenticateToken,
+  authorizeRoles('ADMIN', 'DIRECTOR'),
+  async (req, res, next) => {
+    try {
+      const { programa, dia, hora } = req.body;
+      if (!programa || !dia || !hora) {
+        return res.status(400).json({ error: 'programa, dia y hora requeridos' });
+      }
+      const existe = await prisma.programaFijo.findFirst({ where: { dia, hora } });
+      if (existe) {
+        return res.status(409).json({ error: 'Ya existe un programa fijo en ese horario' });
+      }
+      const nuevo = await prisma.programaFijo.create({ data: { programa, dia, hora } });
+      res.status(201).json(nuevo);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// DELETE /api/radio/programas-fijos/:id — Eliminar programa fijo
+router.delete(
+  '/programas-fijos/:id',
+  authenticateToken,
+  authorizeRoles('ADMIN', 'DIRECTOR'),
+  async (req, res, next) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      await prisma.programaFijo.delete({ where: { id } });
+      res.json({ ok: true });
+    } catch (error) {
+      if (error.code === 'P2025') return res.status(404).json({ error: 'Programa no encontrado' });
+      next(error);
+    }
+  }
+);
+
 export default router;

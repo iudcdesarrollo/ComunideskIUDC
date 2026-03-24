@@ -51,6 +51,7 @@ export default function ParrillaRadio() {
   const [slotSeleccionado, setSlotSeleccionado] = useState(null);
   const [reservaDetalle, setReservaDetalle] = useState(null);
   const [reservaARechazo, setReservaARechazo] = useState(null);
+  const [modalFijo, setModalFijo] = useState(null);
   const [comentarioRechazo, setComentarioRechazo] = useState('');
   const [rechazandoId, setRechazandoId] = useState(null);
   const [reservaExitosa, setReservaExitosa] = useState(false);
@@ -295,7 +296,10 @@ export default function ParrillaRadio() {
 
     if (fijo) {
       return (
-        <div className="h-full bg-blue-600 text-white rounded-xl flex flex-col items-center justify-center text-center px-1 py-2 relative overflow-hidden">
+        <div
+          onClick={() => setModalFijo(fijo)}
+          className="h-full bg-blue-600 text-white rounded-xl flex flex-col items-center justify-center text-center px-1 py-2 relative overflow-hidden cursor-pointer hover:bg-blue-700 transition-colors"
+        >
           {enVivo && (
             <span className="absolute top-1 right-1 flex items-center gap-0.5 bg-red-500 text-white text-[7px] font-black px-1 py-0.5 rounded-full animate-pulse">
               ● EN VIVO
@@ -744,7 +748,25 @@ export default function ParrillaRadio() {
                 <button onClick={() => setModalDetalle(false)} className="btn-secondary sm:ml-auto">Cerrar</button>
               </div>
             )}
-            {(!puedeGestionarSolicitudes() || reservaDetalle.estado === 'rechazada') && (
+            {puedeGestionarSolicitudes() && reservaDetalle.estado === 'rechazada' && (
+              <div className="flex flex-wrap gap-3 p-4 sm:p-6 border-t border-gray-100">
+                <button
+                  onClick={async () => {
+                    if (!confirm('¿Liberar este espacio? La reserva rechazada se eliminará.')) return;
+                    try {
+                      await api.delete(`/radio/reservas/${reservaDetalle.id}`);
+                      setReservas(prev => prev.filter(r => r.id !== reservaDetalle.id));
+                      setModalDetalle(false);
+                    } catch (err) { alert(err.data?.error || 'Error al liberar'); }
+                  }}
+                  className="bg-amber-500 hover:bg-amber-600 text-white font-medium py-2.5 px-5 rounded-xl flex items-center gap-2 transition-colors"
+                >
+                  <XCircle className="w-4 h-4" /> Liberar espacio
+                </button>
+                <button onClick={() => setModalDetalle(false)} className="btn-secondary sm:ml-auto">Cerrar</button>
+              </div>
+            )}
+            {!puedeGestionarSolicitudes() && (
               <div className="flex gap-3 p-4 sm:p-6 border-t border-gray-100">
                 <button onClick={() => setModalDetalle(false)} className="btn-secondary">Cerrar</button>
               </div>
@@ -800,6 +822,61 @@ export default function ParrillaRadio() {
               </button>
               <button onClick={() => setModalRechazo(false)} className="btn-secondary">Cancelar</button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* ── Modal de programa fijo ─────────────────────── */}
+      {modalFijo && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
+            <div className="flex items-center justify-between p-5 border-b border-gray-100">
+              <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                <Lock className="w-5 h-5 text-blue-600" />
+                Programa fijo
+              </h3>
+              <button onClick={() => setModalFijo(null)} className="p-1 hover:bg-gray-100 rounded-lg">
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+            <div className="p-5 space-y-3">
+              <div className="bg-blue-50 rounded-xl p-4">
+                <p className="text-xs text-blue-400 mb-0.5">Programa</p>
+                <p className="text-sm font-semibold text-blue-900">{modalFijo.programa}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-gray-50 rounded-xl p-3">
+                  <p className="text-xs text-gray-400 mb-0.5">Día</p>
+                  <p className="text-sm font-medium text-gray-900">{modalFijo.dia}</p>
+                </div>
+                <div className="bg-gray-50 rounded-xl p-3">
+                  <p className="text-xs text-gray-400 mb-0.5">Hora</p>
+                  <p className="text-sm font-medium text-gray-900">{modalFijo.hora}</p>
+                </div>
+              </div>
+            </div>
+            {puedeGestionarSolicitudes() && (
+              <div className="flex flex-wrap gap-3 p-5 border-t border-gray-100">
+                <button
+                  onClick={async () => {
+                    if (!confirm(`¿Eliminar el programa fijo "${modalFijo.programa}"? El horario quedará libre para reservas.`)) return;
+                    try {
+                      await api.delete(`/radio/programas-fijos/${modalFijo.id}`);
+                      setProgramasFijos(prev => prev.filter(p => p.id !== modalFijo.id));
+                      setModalFijo(null);
+                    } catch (err) { alert(err.data?.error || 'Error al eliminar'); }
+                  }}
+                  className="btn-danger flex items-center gap-2"
+                >
+                  <XCircle className="w-4 h-4" /> Eliminar programa
+                </button>
+                <button onClick={() => setModalFijo(null)} className="btn-secondary sm:ml-auto">Cerrar</button>
+              </div>
+            )}
+            {!puedeGestionarSolicitudes() && (
+              <div className="flex gap-3 p-5 border-t border-gray-100">
+                <button onClick={() => setModalFijo(null)} className="btn-secondary">Cerrar</button>
+              </div>
+            )}
           </div>
         </div>
       )}
