@@ -736,7 +736,7 @@ export default function Dashboard() {
         );
       })()}
 
-      <div className="grid md:grid-cols-3 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
         {/* Acciones rápidas - Solo solicitantes */}
         {esSolicitante() && (
           <div className="md:col-span-1 order-2 md:order-1">
@@ -831,7 +831,7 @@ export default function Dashboard() {
         )}
 
         {/* Solicitudes recientes */}
-        <div className="md:col-span-2 order-1 md:order-2">
+        <div className="md:col-span-2 order-1 md:order-2 min-w-0">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900">
               {esEquipo() ? 'Solicitudes por atender' : esSolicitante() ? 'Mis solicitudes recientes' : 'Todas las solicitudes'}
@@ -857,13 +857,13 @@ export default function Dashboard() {
                 const prioridad = (sol.prioridad || '').toUpperCase();
                 const prioridadColor = prioridad === 'ALTA' ? 'bg-red-500' : prioridad === 'MEDIA' ? 'bg-amber-400' : 'bg-gray-300';
                 return (
-                  <div key={sol.id} className={`card-hover flex items-center gap-3 border-l-4 ${prioridad === 'ALTA' ? 'border-l-red-400' : prioridad === 'MEDIA' ? 'border-l-amber-400' : 'border-l-gray-200'}`} onClick={() => navigate(`/mis-solicitudes?expand=${sol.id}`)}>
+                  <div key={sol.id} className={`card-hover flex items-center gap-3 border-l-4 overflow-hidden ${prioridad === 'ALTA' ? 'border-l-red-400' : prioridad === 'MEDIA' ? 'border-l-amber-400' : 'border-l-gray-200'}`} onClick={() => navigate(`/mis-solicitudes?expand=${sol.id}`)}>
                     <div className="hidden sm:flex w-10 h-10 bg-gray-100 rounded-xl items-center justify-center text-xs font-bold text-gray-500 relative shrink-0">
                       {sol.id.split('-')[1]}
                       {esEquipo() && <span className={`absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full ${prioridadColor}`} title={sol.prioridad} />}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">{sol.titulo}</p>
+                    <div className="flex-1 min-w-0 overflow-hidden">
+                      <p className="text-sm font-medium text-gray-900 truncate max-w-full">{sol.titulo}</p>
                       <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                         <span className="text-xs text-gray-500">{sol.tipoNombre}</span>
                         <span className="text-xs text-gray-300">·</span>
