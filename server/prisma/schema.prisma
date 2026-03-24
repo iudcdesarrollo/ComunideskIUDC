@@ -67,7 +67,8 @@ model User {
   solicitudesAsignadas  Solicitud[]      @relation("AsignadoRelation")
   reservasRadio         ReservaRadio[]
   reservasValleIA       ReservaValleIA[]
-  urgentes              Urgente[]
+  urgentes              Urgente[]        @relation("UrgenteSolicitante")
+  urgentesAsignados     Urgente[]        @relation("UrgenteAsignado")
   pqrs                  PQRS[]
   refreshTokens         RefreshToken[]
   notificaciones        Notificacion[]
@@ -154,10 +155,12 @@ model Urgente {
   titulo         String
   descripcion    String
   solicitanteId  Int
+  asignadoId     Int?
   estado         EstadoUrgente
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
-  solicitante    User           @relation(fields: [solicitanteId], references: [id])
+  solicitante    User           @relation("UrgenteSolicitante", fields: [solicitanteId], references: [id])
+  asignado       User?          @relation("UrgenteAsignado", fields: [asignadoId], references: [id])
 }
 
 model RefreshToken {

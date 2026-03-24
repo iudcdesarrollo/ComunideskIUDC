@@ -27,9 +27,24 @@ router.get('/', async (req, res, next) => {
       orderBy: { createdAt: 'desc' },
       include: {
         solicitante: { select: { id: true, nombre: true, cargo: true } },
+        asignado: { select: { id: true, nombre: true, cargo: true } },
       },
     });
     res.json({ data: urgentes });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/urgentes/equipo — Listar miembros del equipo para asignar
+router.get('/equipo', authorizeRoles('ADMIN', 'DIRECTOR'), async (req, res, next) => {
+  try {
+    const equipo = await prisma.user.findMany({
+      where: { rol: { in: ['ADMIN', 'DIRECTOR', 'EQUIPO'] } },
+      select: { id: true, nombre: true, cargo: true, rol: true },
+      orderBy: { nombre: 'asc' },
+    });
+    res.json(equipo);
   } catch (error) {
     next(error);
   }
@@ -48,6 +63,7 @@ router.post('/', authorizeRoles('ADMIN', 'DIRECTOR'), validate(createSchema), as
       },
       include: {
         solicitante: { select: { id: true, nombre: true, cargo: true } },
+        asignado: { select: { id: true, nombre: true, cargo: true } },
       },
     });
     // Notify all ADMIN, DIRECTOR and EQUIPO users (except the creator)
@@ -80,6 +96,7 @@ router.patch('/:id/estado', authorizeRoles('ADMIN', 'DIRECTOR'), validate(estado
       data: { estado },
       include: {
         solicitante: { select: { id: true, nombre: true, cargo: true } },
+        asignado: { select: { id: true, nombre: true, cargo: true } },
       },
     });
 
@@ -94,6 +111,38 @@ router.patch('/:id/estado', authorizeRoles('ADMIN', 'DIRECTOR'), validate(estado
         tipo: 'urgente_estado',
         titulo: `Urgente: ${estadoLabel[estado]}`,
         mensaje: `"${urgente.titulo}" cambió a estado: ${estadoLabel[estado]}`,
+        referenceId: String(urgente.id),
+      });
+    }
+
+    res.json(urgente);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PATCH /api/urgentes/:id/asignar — Asignar solicitud a un miembro
+router.patch('/:id/asignar', authorizeRoles('ADMIN', 'DIRECTOR'), async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { asignadoId } = req.body;
+
+    const urgente = await prisma.urgente.update({
+      where: { id: parseInt(id) },
+      data: { asignadoId: asignadoId ? parseInt(asignadoId) : null },
+      include: {
+        solicitante: { select: { id: true, nombre: true, cargo: true } },
+        asignado: { select: { id: true, nombre: true, cargo: true } },
+      },
+    });
+
+    // Notificar al asignado
+    if (asignadoId) {
+      await crearNotificacion({
+        userId: parseInt(asignadoId),
+        tipo: 'urgente_asignado',
+        titulo: 'Solicitud urgente asignada',
+        mensaje: `Te han asignado la solicitud urgente: "${urgente.titulo}"`,
         referenceId: String(urgente.id),
       });
     }

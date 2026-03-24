@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   XCircle,
   Shield,
+  UserPlus,
 } from 'lucide-react';
 
 const estadoConfig = {
@@ -35,16 +36,23 @@ export default function CanalUrgente() {
   const [descripcion, setDescripcion] = useState('');
   const [enviado, setEnviado] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [equipo, setEquipo] = useState([]);
 
   useEffect(() => {
-    const fetchUrgentes = async () => {
+    const fetchData = async () => {
       try {
         const res = await api.get('/urgentes');
         const data = Array.isArray(res) ? res : res.data || [];
         setUrgentes(data.map(u => ({ ...u, estado: (u.estado || '').toLowerCase() })));
+
+        if (usuario && (usuario.rol?.toUpperCase() === 'ADMIN' || usuario.rol?.toUpperCase() === 'DIRECTOR')) {
+          try {
+            const eq = await api.get('/urgentes/equipo');
+            setEquipo(Array.isArray(eq) ? eq : eq.data || []);
+          } catch {}
+        }
       } catch (error) {
         console.error('Error fetching urgentes:', error);
-        // Show fetch error if it's a 403 (permissions issue)
         if (error.status === 403) {
           alert('No tienes permisos para ver el canal urgente.');
         }
@@ -52,7 +60,7 @@ export default function CanalUrgente() {
         setLoading(false);
       }
     };
-    fetchUrgentes();
+    fetchData();
   }, []);
 
   const enviarUrgente = async (e) => {
@@ -82,6 +90,19 @@ export default function CanalUrgente() {
       );
     } catch (error) {
       alert(error.data?.error || 'Error al cambiar estado');
+    }
+  };
+
+  const asignar = async (id, asignadoId) => {
+    try {
+      const res = await api.patch(`/urgentes/${id}/asignar`, {
+        asignadoId: asignadoId ? parseInt(asignadoId) : null,
+      });
+      setUrgentes((prev) =>
+        prev.map((u) => u.id === id ? { ...u, asignado: res.asignado, asignadoId: res.asignadoId } : u)
+      );
+    } catch (error) {
+      alert(error.data?.error || 'Error al asignar');
     }
   };
 
@@ -176,7 +197,7 @@ export default function CanalUrgente() {
               return (
                 <div key={urg.id} className="card border-l-4 border-l-red-400">
                   <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-1">
                         <h3 className="font-semibold text-gray-900">{urg.titulo}</h3>
                         <span className={`badge border ${config.clase}`}>
@@ -185,6 +206,15 @@ export default function CanalUrgente() {
                         </span>
                       </div>
                       <p className="text-sm text-gray-600 mb-2">{urg.descripcion}</p>
+
+                      {/* Asignado */}
+                      {urg.asignado && (
+                        <div className="flex items-center gap-1.5 text-xs text-blue-600 bg-blue-50 border border-blue-100 rounded-lg px-2.5 py-1 w-fit mb-2">
+                          <UserPlus className="w-3 h-3" />
+                          Asignado a: <span className="font-medium">{urg.asignado.nombre}</span>
+                        </div>
+                      )}
+
                       <div className="flex items-center gap-4 text-xs text-gray-400 flex-wrap">
                         <span>{urg.solicitante?.nombre}</span>
                         <span>{urg.solicitante?.cargo}</span>
@@ -193,7 +223,7 @@ export default function CanalUrgente() {
                     </div>
 
                     {(esAdmin() || esDirector()) && (
-                      <div className="shrink-0">
+                      <div className="shrink-0 flex flex-col gap-2">
                         <select
                           value={urg.estado}
                           onChange={(e) => cambiarEstado(urg.id, e.target.value)}
@@ -202,6 +232,19 @@ export default function CanalUrgente() {
                           <option value="pendiente">Pendiente</option>
                           <option value="en_proceso">En proceso</option>
                           <option value="resuelto">Resuelto</option>
+                        </select>
+
+                        <select
+                          value={urg.asignado?.id || ''}
+                          onChange={(e) => asignar(urg.id, e.target.value)}
+                          className="input-field text-sm w-full sm:w-auto"
+                        >
+                          <option value="">Asignar a...</option>
+                          {equipo.map((m) => (
+                            <option key={m.id} value={m.id}>
+                              {m.nombre} — {m.cargo}
+                            </option>
+                          ))}
                         </select>
                       </div>
                     )}
