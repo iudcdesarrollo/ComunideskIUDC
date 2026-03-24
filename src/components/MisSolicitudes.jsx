@@ -309,10 +309,10 @@ export default function MisSolicitudes() {
                   <span className="text-xs font-bold text-gray-500">{sol.id.split('-')[1]}</span>
                 </div>
 
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 overflow-hidden">
                   <div className="flex items-start sm:items-center gap-2 flex-wrap">
-                    <p className="font-semibold text-gray-900 text-sm leading-tight">{sol.titulo}</p>
-                    <span className="text-xs text-gray-400 font-mono">{sol.id}</span>
+                    <p className={`font-semibold text-gray-900 text-sm leading-tight ${expandida !== sol.id ? 'line-clamp-1' : ''}`}>{sol.titulo}</p>
+                    <span className="text-xs text-gray-400 font-mono shrink-0">{sol.id}</span>
                   </div>
                   <div className="flex items-center gap-2 sm:gap-3 mt-1 text-xs text-gray-500 flex-wrap">
                     <span className="flex items-center gap-1 truncate max-w-[120px] sm:max-w-none">

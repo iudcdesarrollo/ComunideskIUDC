@@ -179,7 +179,7 @@ export default function NotificationBell() {
       </button>
 
       {abierto && (
-        <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white rounded-xl shadow-lg border border-gray-200 z-50 overflow-hidden">
+        <div className="fixed inset-x-3 top-14 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-96 bg-white rounded-xl shadow-lg border border-gray-200 z-50 overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50">
             <h3 className="text-sm font-semibold text-gray-900">Notificaciones</h3>
@@ -282,7 +282,7 @@ export default function NotificationBell() {
         const ToastIcon = TIPO_ICONOS[toast.tipo] || Bell;
         const color = TIPO_COLORES[toast.tipo] || 'bg-gray-700';
         return (
-          <div className={`fixed bottom-6 right-6 z-[999] flex items-start gap-3 max-w-sm w-full bg-white rounded-2xl shadow-2xl border border-gray-100 p-4 animate-slide-up`}>
+          <div className={`fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 z-[999] flex items-start gap-3 max-w-sm w-auto sm:w-full bg-white rounded-2xl shadow-2xl border border-gray-100 p-4 animate-slide-up`}>
             <div className={`w-9 h-9 ${color} rounded-xl flex items-center justify-center shrink-0`}>
               <ToastIcon className="w-4 h-4 text-white" />
             </div>
