@@ -6,9 +6,10 @@ import {
   Send,
   Clock,
   CheckCircle2,
-  XCircle,
   Shield,
   UserPlus,
+  Users,
+  X,
 } from 'lucide-react';
 
 const estadoConfig = {
@@ -37,6 +38,10 @@ export default function CanalUrgente() {
   const [enviado, setEnviado] = useState(false);
   const [loading, setLoading] = useState(true);
   const [equipo, setEquipo] = useState([]);
+  const [modalAsignar, setModalAsignar] = useState(null); // urgente id
+  const [seleccionados, setSeleccionados] = useState([]);
+
+  const esGestor = esAdmin() || esDirector();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -45,7 +50,7 @@ export default function CanalUrgente() {
         const data = Array.isArray(res) ? res : res.data || [];
         setUrgentes(data.map(u => ({ ...u, estado: (u.estado || '').toLowerCase() })));
 
-        if (usuario && (usuario.rol?.toUpperCase() === 'ADMIN' || usuario.rol?.toUpperCase() === 'DIRECTOR')) {
+        if (esGestor) {
           try {
             const eq = await api.get('/urgentes/equipo');
             setEquipo(Array.isArray(eq) ? eq : eq.data || []);
@@ -66,7 +71,6 @@ export default function CanalUrgente() {
   const enviarUrgente = async (e) => {
     e.preventDefault();
     if (!titulo.trim() || !descripcion.trim()) return;
-
     try {
       const nuevo = await api.post('/urgentes', {
         titulo: titulo.trim(),
@@ -93,14 +97,26 @@ export default function CanalUrgente() {
     }
   };
 
-  const asignar = async (id, asignadoId) => {
+  const abrirModalAsignar = (urg) => {
+    setModalAsignar(urg.id);
+    setSeleccionados(urg.asignados?.map(a => a.id) || []);
+  };
+
+  const toggleSeleccion = (id) => {
+    setSeleccionados(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const guardarAsignacion = async () => {
     try {
-      const res = await api.patch(`/urgentes/${id}/asignar`, {
-        asignadoId: asignadoId ? parseInt(asignadoId) : null,
+      const res = await api.patch(`/urgentes/${modalAsignar}/asignar`, {
+        asignadoIds: seleccionados,
       });
-      setUrgentes((prev) =>
-        prev.map((u) => u.id === id ? { ...u, asignado: res.asignado, asignadoId: res.asignadoId } : u)
+      setUrgentes(prev =>
+        prev.map(u => u.id === modalAsignar ? { ...u, asignados: res.asignados } : u)
       );
+      setModalAsignar(null);
     } catch (error) {
       alert(error.data?.error || 'Error al asignar');
     }
@@ -130,8 +146,8 @@ export default function CanalUrgente() {
         </div>
       </div>
 
-      {/* Formulario de solicitud urgente — solo Admin/Director */}
-      {(esAdmin() || esDirector()) && (
+      {/* Formulario — solo Admin/Director */}
+      {esGestor && (
         <div className="card border-l-4 border-l-red-500">
           <h2 className="font-semibold text-gray-900 mb-4">Nueva solicitud urgente</h2>
 
@@ -156,7 +172,6 @@ export default function CanalUrgente() {
                 required
               />
             </div>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Descripción detallada <span className="text-red-500">*</span>
@@ -169,7 +184,6 @@ export default function CanalUrgente() {
                 required
               />
             </div>
-
             <button type="submit" className="btn-danger flex items-center gap-2">
               <Send className="w-4 h-4" />
               Enviar solicitud urgente
@@ -207,11 +221,15 @@ export default function CanalUrgente() {
                       </div>
                       <p className="text-sm text-gray-600 mb-2">{urg.descripcion}</p>
 
-                      {/* Asignado */}
-                      {urg.asignado && (
-                        <div className="flex items-center gap-1.5 text-xs text-blue-600 bg-blue-50 border border-blue-100 rounded-lg px-2.5 py-1 w-fit mb-2">
-                          <UserPlus className="w-3 h-3" />
-                          Asignado a: <span className="font-medium">{urg.asignado.nombre}</span>
+                      {/* Asignados */}
+                      {urg.asignados?.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mb-2">
+                          {urg.asignados.map(a => (
+                            <span key={a.id} className="flex items-center gap-1 text-xs text-blue-700 bg-blue-50 border border-blue-100 rounded-full px-2.5 py-0.5">
+                              <Users className="w-3 h-3" />
+                              {a.nombre}
+                            </span>
+                          ))}
                         </div>
                       )}
 
@@ -222,7 +240,7 @@ export default function CanalUrgente() {
                       </div>
                     </div>
 
-                    {(esAdmin() || esDirector()) && (
+                    {esGestor && (
                       <div className="shrink-0 flex flex-col gap-2">
                         <select
                           value={urg.estado}
@@ -234,18 +252,13 @@ export default function CanalUrgente() {
                           <option value="resuelto">Resuelto</option>
                         </select>
 
-                        <select
-                          value={urg.asignado?.id || ''}
-                          onChange={(e) => asignar(urg.id, e.target.value)}
-                          className="input-field text-sm w-full sm:w-auto"
+                        <button
+                          onClick={() => abrirModalAsignar(urg)}
+                          className="flex items-center justify-center gap-1.5 text-sm px-3 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-xl hover:bg-blue-100 transition-colors"
                         >
-                          <option value="">Asignar a...</option>
-                          {equipo.map((m) => (
-                            <option key={m.id} value={m.id}>
-                              {m.nombre} — {m.cargo}
-                            </option>
-                          ))}
-                        </select>
+                          <UserPlus className="w-4 h-4" />
+                          Asignar ({urg.asignados?.length || 0})
+                        </button>
                       </div>
                     )}
                   </div>
@@ -255,6 +268,70 @@ export default function CanalUrgente() {
           </div>
         )}
       </div>
+
+      {/* Modal de asignación */}
+      {modalAsignar && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between p-5 border-b">
+              <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                <UserPlus className="w-5 h-5 text-blue-600" />
+                Asignar responsables
+              </h3>
+              <button onClick={() => setModalAsignar(null)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 overflow-y-auto flex-1">
+              <p className="text-sm text-gray-500 mb-4">Selecciona uno o más miembros del equipo:</p>
+              <div className="space-y-2">
+                {equipo.map(m => {
+                  const activo = seleccionados.includes(m.id);
+                  return (
+                    <button
+                      key={m.id}
+                      onClick={() => toggleSeleccion(m.id)}
+                      className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
+                        activo
+                          ? 'bg-blue-50 border-blue-300 ring-1 ring-blue-300'
+                          : 'bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                        activo ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500'
+                      }`}>
+                        {m.nombre.charAt(0)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{m.nombre}</p>
+                        <p className="text-xs text-gray-500 truncate">{m.cargo}</p>
+                      </div>
+                      {activo && <CheckCircle2 className="w-5 h-5 text-blue-600 shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="p-5 border-t flex gap-3">
+              <button
+                onClick={() => setModalAsignar(null)}
+                className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={guardarAsignacion}
+                className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                Guardar ({seleccionados.length})
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

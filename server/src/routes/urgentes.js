@@ -8,6 +8,11 @@ import { crearNotificacion } from '../helpers/notificaciones.js';
 const router = Router();
 const prisma = new PrismaClient();
 
+const includeAsignados = {
+  solicitante: { select: { id: true, nombre: true, cargo: true } },
+  asignados: { select: { id: true, nombre: true, cargo: true } },
+};
+
 // All urgentes routes require ADMIN, DIRECTOR or EQUIPO
 router.use(authenticateToken, authorizeRoles('ADMIN', 'DIRECTOR', 'EQUIPO'));
 
@@ -25,10 +30,7 @@ router.get('/', async (req, res, next) => {
   try {
     const urgentes = await prisma.urgente.findMany({
       orderBy: { createdAt: 'desc' },
-      include: {
-        solicitante: { select: { id: true, nombre: true, cargo: true } },
-        asignado: { select: { id: true, nombre: true, cargo: true } },
-      },
+      include: includeAsignados,
     });
     res.json({ data: urgentes });
   } catch (error) {
@@ -61,10 +63,7 @@ router.post('/', authorizeRoles('ADMIN', 'DIRECTOR'), validate(createSchema), as
         solicitanteId: req.user.id,
         estado: 'PENDIENTE',
       },
-      include: {
-        solicitante: { select: { id: true, nombre: true, cargo: true } },
-        asignado: { select: { id: true, nombre: true, cargo: true } },
-      },
+      include: includeAsignados,
     });
     // Notify all ADMIN, DIRECTOR and EQUIPO users (except the creator)
     const destinatarios = await prisma.user.findMany({
@@ -94,10 +93,7 @@ router.patch('/:id/estado', authorizeRoles('ADMIN', 'DIRECTOR'), validate(estado
     const urgente = await prisma.urgente.update({
       where: { id: parseInt(id) },
       data: { estado },
-      include: {
-        solicitante: { select: { id: true, nombre: true, cargo: true } },
-        asignado: { select: { id: true, nombre: true, cargo: true } },
-      },
+      include: includeAsignados,
     });
 
     // Notificar a admin/director/equipo del cambio de estado (excepto quien lo cambió)
@@ -121,25 +117,30 @@ router.patch('/:id/estado', authorizeRoles('ADMIN', 'DIRECTOR'), validate(estado
   }
 });
 
-// PATCH /api/urgentes/:id/asignar — Asignar solicitud a un miembro
+// PATCH /api/urgentes/:id/asignar — Asignar solicitud a uno o más miembros
 router.patch('/:id/asignar', authorizeRoles('ADMIN', 'DIRECTOR'), async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { asignadoId } = req.body;
+    const { asignadoIds } = req.body; // array de IDs
+
+    if (!Array.isArray(asignadoIds)) {
+      return res.status(400).json({ error: 'asignadoIds debe ser un array' });
+    }
 
     const urgente = await prisma.urgente.update({
       where: { id: parseInt(id) },
-      data: { asignadoId: asignadoId ? parseInt(asignadoId) : null },
-      include: {
-        solicitante: { select: { id: true, nombre: true, cargo: true } },
-        asignado: { select: { id: true, nombre: true, cargo: true } },
+      data: {
+        asignados: {
+          set: asignadoIds.map(aid => ({ id: parseInt(aid) })),
+        },
       },
+      include: includeAsignados,
     });
 
-    // Notificar al asignado
-    if (asignadoId) {
+    // Notificar a los nuevos asignados
+    for (const aid of asignadoIds) {
       await crearNotificacion({
-        userId: parseInt(asignadoId),
+        userId: parseInt(aid),
         tipo: 'urgente_asignado',
         titulo: 'Solicitud urgente asignada',
         mensaje: `Te han asignado la solicitud urgente: "${urgente.titulo}"`,

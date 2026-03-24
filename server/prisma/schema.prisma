@@ -155,12 +155,11 @@ model Urgente {
   titulo         String
   descripcion    String
   solicitanteId  Int
-  asignadoId     Int?
   estado         EstadoUrgente
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   solicitante    User           @relation("UrgenteSolicitante", fields: [solicitanteId], references: [id])
-  asignado       User?          @relation("UrgenteAsignado", fields: [asignadoId], references: [id])
+  asignados      User[]         @relation("UrgenteAsignado")
 }
 
 model RefreshToken {
