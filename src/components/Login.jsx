@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Radio, Eye, EyeOff, AlertCircle, UserPlus, LogIn } from 'lucide-react';
+import { Radio, Eye, EyeOff, AlertCircle, UserPlus, LogIn, Monitor, Users, Sparkles, Clock } from 'lucide-react';
 import DisclaimerBanner from './DisclaimerBanner';
 
 export default function Login() {
@@ -311,6 +311,71 @@ export default function Login() {
             </form>
           )}
 
+        </div>
+
+        {/* ── Banner Valle del Software · IA Nocturna ── */}
+        <div className="mt-6 relative overflow-hidden rounded-2xl bg-gradient-to-r from-purple-700 via-purple-600 to-indigo-700 p-5 sm:p-6 shadow-xl">
+          {/* Decoración de fondo */}
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
+          <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
+
+          <div className="relative flex flex-col sm:flex-row items-start gap-4">
+            {/* Icono izquierdo */}
+            <div className="w-11 h-11 bg-white/15 backdrop-blur-sm rounded-xl flex items-center justify-center shrink-0">
+              <Monitor className="w-6 h-6 text-white" />
+            </div>
+
+            {/* Contenido */}
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-yellow-400 text-yellow-900 uppercase tracking-wide">
+                  Proximamente
+                </span>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-white/20 text-white uppercase tracking-wide">
+                  Jornada Nocturna
+                </span>
+              </div>
+
+              <h3 className="text-lg sm:text-xl font-bold text-white leading-tight">
+                Valle del Software · IA Nocturna
+              </h3>
+              <p className="text-purple-200 text-sm mt-1.5 leading-relaxed">
+                Muy pronto abriremos nuevos espacios de capacitacion en IA para los estudiantes de la jornada nocturna. Agenda tu equipo, reserva tu horario y trabaja con inteligencia artificial.
+              </p>
+
+              {/* Tags */}
+              <div className="flex flex-wrap gap-2 mt-3">
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-white/15 text-white">
+                  <Clock className="w-3 h-3" />
+                  Franja nocturna
+                </span>
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-white/15 text-white">
+                  <Users className="w-3 h-3" />
+                  Capacitaciones con docentes
+                </span>
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-white/15 text-white">
+                  <Sparkles className="w-3 h-3" />
+                  Herramientas IA
+                </span>
+              </div>
+
+              {/* Botón */}
+              <a
+                href="/login"
+                onClick={(e) => { e.preventDefault(); cambiarModo('registro'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                className="inline-flex items-center gap-2 mt-4 px-5 py-2.5 bg-yellow-400 hover:bg-yellow-300 text-yellow-900 font-semibold text-sm rounded-xl transition-all hover:shadow-lg hover:shadow-yellow-400/30 active:scale-95"
+              >
+                <Users className="w-4 h-4" />
+                Quiero inscribirme
+              </a>
+            </div>
+
+            {/* Icono IA derecho (solo desktop) */}
+            <div className="hidden sm:flex w-14 h-14 bg-white/15 backdrop-blur-sm rounded-2xl items-center justify-center shrink-0">
+              <Sparkles className="w-7 h-7 text-yellow-300" />
+              <span className="absolute -bottom-0.5 text-[10px] font-bold text-white/70">IA</span>
+            </div>
+          </div>
         </div>
 
         <p className="text-center text-blue-200 text-xs mt-6">

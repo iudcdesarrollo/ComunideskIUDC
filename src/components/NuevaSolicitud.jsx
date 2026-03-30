@@ -17,7 +17,10 @@ import {
   Upload,
   File,
   X,
+  Wand2,
+  Users,
 } from 'lucide-react';
+import GeneradorIA from './GeneradorIA';
 
 const iconosTipo = { ClipboardList, Camera, Palette, Award, FolderOpen, Radio };
 
@@ -71,9 +74,11 @@ export default function NuevaSolicitud() {
   const [loading, setLoading] = useState(true);
   const [enviando, setEnviando] = useState(false);
   const [archivoFile, setArchivoFile] = useState(null);
+  const [modoIA, setModoIA] = useState('solicitar');
 
   useEffect(() => {
     setFormData({});
+    setModoIA('solicitar');
     setArchivoFile(null);
   }, [tipoSeleccionado]);
 
@@ -242,7 +247,37 @@ export default function NuevaSolicitud() {
         </div>
       )}
 
-      {/* Paso 2: Formulario según tipo */}
+      {/* TODO: Tabs IA - descomentar cuando Freepik esté en producción
+      {tipoSeleccionado && tipoSeleccionado !== 'radio' && tipos.find(t => t.id === tipoSeleccionado)?.icono === 'Palette' && (
+        <div className="flex rounded-xl bg-gray-100 p-1">
+          <button
+            type="button"
+            onClick={() => setModoIA('solicitar')}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${
+              modoIA === 'solicitar' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            Solicitar al equipo
+          </button>
+          <button
+            type="button"
+            onClick={() => setModoIA('ia')}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${
+              modoIA === 'ia' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <Wand2 className="w-4 h-4" />
+            Creala tu mismo con IA
+          </button>
+        </div>
+      )}
+      {tipoSeleccionado && tipoSeleccionado !== 'radio' && modoIA === 'ia' && tipos.find(t => t.id === tipoSeleccionado)?.icono === 'Palette' && (
+        <GeneradorIA />
+      )}
+      */}
+
+      {/* Paso 2: Formulario segun tipo */}
       {tipoSeleccionado && tipoSeleccionado !== 'radio' && (
         <form onSubmit={handleSubmit} className="card space-y-5">
           {/* Tipo seleccionado */}

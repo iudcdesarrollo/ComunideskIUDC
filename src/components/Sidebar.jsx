@@ -11,6 +11,7 @@ import {
   Users,
   Brain,
   MessageSquarePlus,
+  Headset,
   X,
 } from 'lucide-react';
 
@@ -25,12 +26,13 @@ const iconMap = {
   Download,
   Users,
   MessageSquarePlus,
+  Headset,
 };
 
 export default function Sidebar({ abierto, cerrar }) {
   const { usuario, puedeVerUrgentes, puedeGestionarSolicitudes } = useAuth();
 
-  const enlaces = [
+  const enlacesComunidesk = [
     {
       to: '/dashboard',
       label: 'Panel principal',
@@ -129,32 +131,64 @@ export default function Sidebar({ abierto, cerrar }) {
         </div>
 
         {/* Navegación */}
-        <nav className="p-3 space-y-1 mt-2 flex-1 overflow-y-auto">
-          {enlaces
-            .filter((e) => e.visible)
-            .map((enlace) => {
-              const Icon = iconMap[enlace.icon];
-              return (
-                <NavLink
-                  key={enlace.to}
-                  to={enlace.to}
-                  onClick={cerrar}
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
-                      isActive
-                        ? 'bg-blue-50 text-blue-700'
-                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                    }`
-                  }
-                >
-                  <Icon className="w-5 h-5 shrink-0" />
-                  {enlace.label}
-                  {enlace.to === '/urgente' && (
-                    <span className="ml-auto w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                  )}
-                </NavLink>
-              );
-            })}
+        <nav className="p-3 flex-1 overflow-y-auto">
+          {/* ── Sección ComuniDesk ──────────────────── */}
+          <div className="space-y-1">
+            {enlacesComunidesk
+              .filter((e) => e.visible)
+              .map((enlace) => {
+                const Icon = iconMap[enlace.icon];
+                return (
+                  <NavLink
+                    key={enlace.to}
+                    to={enlace.to}
+                    onClick={cerrar}
+                    className={({ isActive }) =>
+                      `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+                        isActive
+                          ? 'bg-blue-50 text-blue-700'
+                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      }`
+                    }
+                  >
+                    <Icon className="w-5 h-5 shrink-0" />
+                    {enlace.label}
+                    {enlace.to === '/urgente' && (
+                      <span className="ml-auto w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                    )}
+                  </NavLink>
+                );
+              })}
+          </div>
+
+          {/* ── Help-Me TI (oculto hasta activar) ───── */}
+          {/* TODO: descomentar cuando Help-Me TI esté listo para producción
+          <div className="my-4 px-2">
+            <div className="border-t border-gray-200" />
+          </div>
+
+          <NavLink
+            to="/help-me"
+            onClick={cerrar}
+            className={({ isActive }) =>
+              `flex items-center gap-3 mx-1 px-4 py-3.5 rounded-xl text-sm font-semibold transition-all duration-200 border-2 ${
+                isActive
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-200'
+                  : 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100 hover:border-indigo-300'
+              }`
+            }
+          >
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0`}>
+              <Headset className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <span className="block leading-tight">Help-Me TI</span>
+              <span className={`block text-[11px] font-normal opacity-80 leading-tight`}>
+                Soporte tecnico
+              </span>
+            </div>
+          </NavLink>
+          */}
         </nav>
 
         {/* Info usuario */}

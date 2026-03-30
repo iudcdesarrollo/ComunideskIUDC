@@ -72,6 +72,8 @@ model User {
   pqrs                  PQRS[]
   refreshTokens         RefreshToken[]
   notificaciones        Notificacion[]
+  ticketsTI             TicketTI[]       @relation("TicketTISolicitante")
+  ticketsTIAsignados    TicketTI[]       @relation("TicketTIAgente")
 }
 
 model TipoSolicitud {
@@ -201,6 +203,41 @@ model Notificacion {
   referenceId String?
   createdAt   DateTime @default(now())
   user        User     @relation(fields: [userId], references: [id])
+}
+
+enum CategoriaTI {
+  HARDWARE
+  SOFTWARE
+  RED_INTERNET
+  ACCESOS
+  OTROS
+}
+
+enum EstadoTicketTI {
+  PENDIENTE
+  ASIGNADO
+  EN_PROCESO
+  CUMPLIDO
+  ESCALADO
+}
+
+model TicketTI {
+  id              Int             @id @default(autoincrement())
+  descripcion     String
+  sede            String
+  categoria       CategoriaTI
+  prioridad       Prioridad?
+  estado          EstadoTicketTI  @default(PENDIENTE)
+  solicitanteId   Int
+  agenteId        Int?
+  nota            String?
+  asignadoAt      DateTime?
+  iniciadoAt      DateTime?
+  cumplidoAt      DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  solicitante     User            @relation("TicketTISolicitante", fields: [solicitanteId], references: [id])
+  agente          User?           @relation("TicketTIAgente", fields: [agenteId], references: [id])
 }
 
 model InteresadoNocturna {

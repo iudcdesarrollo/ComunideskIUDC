@@ -19,6 +19,8 @@ import usersRoutes from './routes/users.js';
 import notificacionesRoutes from './routes/notificaciones.js';
 import valleIaRoutes from './routes/valleIa.js';
 import pqrsRoutes from './routes/pqrs.js';
+import helpmeRoutes from './routes/helpme.js';
+import freepikRoutes from './routes/freepik.js';
 
 
 // Check required env vars at startup
@@ -68,6 +70,8 @@ app.use('/api/users', usersRoutes);
 app.use('/api/notificaciones', notificacionesRoutes);
 app.use('/api/valle-ia', valleIaRoutes);
 app.use('/api/pqrs', pqrsRoutes);
+app.use('/api/helpme', helpmeRoutes);
+app.use('/api/freepik', freepikRoutes);
 
 
 

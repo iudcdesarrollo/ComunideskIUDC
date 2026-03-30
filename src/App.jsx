@@ -13,6 +13,7 @@ import GestionUsuarios from './components/GestionUsuarios';
 import ValleIA from './components/ValleIA';
 import PQRS from './components/PQRS';
 import RegistroAsistenciaQR from './components/RegistroAsistenciaQR';
+import HelpMe from './components/HelpMe';
 
 
 function RutaProtegida({ children, roles }) {
@@ -79,6 +80,7 @@ function AppRoutes() {
         <Route path="mis-solicitudes" element={<MisSolicitudes />} />
         <Route path="radio" element={<ParrillaRadio />} />
         <Route path="valle-ia" element={<ValleIA />} />
+        <Route path="help-me" element={<HelpMe />} />
         <Route
           path="pqrs"
           element={
