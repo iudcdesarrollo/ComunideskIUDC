@@ -4,6 +4,8 @@ import { PrismaClient } from '@prisma/client';
 import validate from '../middleware/validate.js';
 import { authenticateToken, authorizeRoles } from '../middleware/auth.js';
 import { crearNotificacion } from '../helpers/notificaciones.js';
+import { uploadSingle } from '../middleware/upload.js';
+import { uploadFile } from '../services/s3.js';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -131,20 +133,43 @@ router.get('/:id', authenticateToken, async (req, res, next) => {
 
 // ─── POST /api/solicitudes ────────────────────────────────
 
-router.post('/', authenticateToken, validate(createSolicitudSchema), async (req, res, next) => {
+router.post('/', authenticateToken, uploadSingle('archivo'), async (req, res, next) => {
   try {
-    const { tipoId, titulo, descripcion, datos, archivoUrl } = req.body;
+    // Parse datos from string if sent as FormData
+    let { tipoId, titulo, descripcion, datos } = req.body;
+    if (typeof datos === 'string') {
+      try { datos = JSON.parse(datos); } catch { datos = {}; }
+    }
+
+    // Validate with Zod
+    const validated = createSolicitudSchema.parse({
+      tipoId,
+      titulo,
+      descripcion,
+      datos,
+    });
+
+    // Upload file to S3 if present
+    let archivoUrl = null;
+    if (req.file) {
+      archivoUrl = await uploadFile(
+        req.file.buffer,
+        req.file.originalname,
+        req.file.mimetype,
+        'solicitudes'
+      );
+    }
 
     const id = await generateSolicitudId();
 
     const solicitud = await prisma.solicitud.create({
       data: {
         id,
-        tipoId,
-        titulo,
-        descripcion: descripcion || '',
-        datos: datos || {},
-        archivoUrl: archivoUrl || null,
+        tipoId: validated.tipoId,
+        titulo: validated.titulo,
+        descripcion: validated.descripcion || '',
+        datos: validated.datos || {},
+        archivoUrl,
         estado: 'PENDIENTE',
         prioridad: 'MEDIA',
         solicitanteId: req.user.id,
@@ -158,6 +183,9 @@ router.post('/', authenticateToken, validate(createSolicitudSchema), async (req,
 
     res.status(201).json(solicitud);
   } catch (error) {
+    if (error.name === 'ZodError') {
+      return res.status(400).json({ error: 'Datos inválidos', details: error.errors });
+    }
     next(error);
   }
 });

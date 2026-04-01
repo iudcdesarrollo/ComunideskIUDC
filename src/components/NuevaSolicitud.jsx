@@ -247,7 +247,7 @@ export default function NuevaSolicitud() {
         </div>
       )}
 
-      {/* TODO: Tabs IA - descomentar cuando Freepik esté en producción
+      {/* TODO: Tabs IA - descomentar cuando FREEPIK_API_KEY esté en Railway
       {tipoSeleccionado && tipoSeleccionado !== 'radio' && tipos.find(t => t.id === tipoSeleccionado)?.icono === 'Palette' && (
         <div className="flex rounded-xl bg-gray-100 p-1">
           <button
